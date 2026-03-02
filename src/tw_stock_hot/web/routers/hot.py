@@ -20,10 +20,8 @@ DB_PASS = os.environ.get("DB_PASS", "stock")
 DB_PORT = int(os.environ.get("DB_PORT", "3306"))
 
 TWSE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/TWSE"
-TPEX_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/TPEX"
 
 twse_engine = create_engine(TWSE_URL, pool_pre_ping=True)
-tpex_engine = create_engine(TPEX_URL, pool_pre_ping=True)
 
 # 漲跌停門檻（10% 限制，留容差）
 LIMIT_THRESHOLD = 9.5
@@ -49,28 +47,6 @@ def _query_twse_limit_stocks(target_date: date) -> list[dict]:
             AND (dp.ClosingPrice - dp.Change) > 0
     """)
     with twse_engine.connect() as conn:
-        rows = conn.execute(sql, {"target_date": target_date}).mappings().all()
-    return [dict(r) for r in rows]
-
-
-def _query_tpex_limit_stocks(target_date: date) -> list[dict]:
-    """查詢 TPEX 漲跌停股票。"""
-    sql = text("""
-        SELECT
-            dp.Code AS code,
-            sn.Name AS name,
-            dp.Close AS close_price,
-            dp.Change AS price_change,
-            ROUND(dp.Change / (dp.Close - dp.Change) * 100, 2) AS change_pct,
-            '' AS industry
-        FROM DailyPrice dp
-        LEFT JOIN StockName sn ON dp.Code = sn.Code
-        WHERE dp.Date = :target_date
-            AND dp.Code REGEXP '^[0-9]{4}$'
-            AND dp.Close > 0
-            AND (dp.Close - dp.Change) > 0
-    """)
-    with tpex_engine.connect() as conn:
         rows = conn.execute(sql, {"target_date": target_date}).mappings().all()
     return [dict(r) for r in rows]
 
@@ -111,9 +87,7 @@ def get_limit_stocks(
     target_date = date.fromisoformat(date_str) if date_str else date.today()
     logger.info("查詢漲跌停: %s", target_date)
 
-    twse_stocks = _query_twse_limit_stocks(target_date)
-    tpex_stocks = _query_tpex_limit_stocks(target_date)
-    all_stocks = twse_stocks + tpex_stocks
+    all_stocks = _query_twse_limit_stocks(target_date)
 
     limit_up, limit_down = _classify_stocks(all_stocks)
 
