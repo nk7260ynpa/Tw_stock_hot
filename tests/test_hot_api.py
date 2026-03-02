@@ -1,4 +1,4 @@
-"""漲跌停 API 單元測試。"""
+"""台股熱度 API 單元測試。"""
 
 from unittest.mock import MagicMock, patch
 
@@ -14,11 +14,16 @@ def client():
     return TestClient(app)
 
 
+# ============================================================
+# /api/hot/limit
+# ============================================================
+
 class TestGetLimitStocks:
     """測試 /api/hot/limit 端點。"""
 
+    @patch("tw_stock_hot.web.routers.hot._query_tpex_limit_stocks")
     @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
-    def test_response_format(self, mock_twse, client):
+    def test_response_format(self, mock_twse, mock_tpex, client):
         """回應應包含漲停與跌停清單。"""
         mock_twse.return_value = [
             {
@@ -30,6 +35,7 @@ class TestGetLimitStocks:
                 "industry": "半導體業",
             }
         ]
+        mock_tpex.return_value = []
 
         res = client.get("/api/hot/limit?date=2026-03-02")
         assert res.status_code == 200
@@ -45,8 +51,9 @@ class TestGetLimitStocks:
         assert data["limit_up"][0]["code"] == "2330"
         assert data["limit_up"][0]["industry"] == "半導體業"
 
+    @patch("tw_stock_hot.web.routers.hot._query_tpex_limit_stocks")
     @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
-    def test_industry_stats(self, mock_twse, client):
+    def test_industry_stats(self, mock_twse, mock_tpex, client):
         """產業統計應正確計算。"""
         mock_twse.return_value = [
             {"code": "2330", "name": "台積電", "close_price": 1100.00,
@@ -56,6 +63,7 @@ class TestGetLimitStocks:
             {"code": "2317", "name": "鴻海", "close_price": 165.00,
              "price_change": 15.00, "change_pct": 10.0, "industry": "其他電子業"},
         ]
+        mock_tpex.return_value = []
 
         res = client.get("/api/hot/limit?date=2026-03-02")
         data = res.json()
@@ -65,10 +73,12 @@ class TestGetLimitStocks:
         assert stats[1]["industry"] == "其他電子業"
         assert stats[1]["count"] == 1
 
+    @patch("tw_stock_hot.web.routers.hot._query_tpex_limit_stocks")
     @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
-    def test_empty_result(self, mock_twse, client):
+    def test_empty_result(self, mock_twse, mock_tpex, client):
         """無資料時應回傳空清單。"""
         mock_twse.return_value = []
+        mock_tpex.return_value = []
 
         res = client.get("/api/hot/limit?date=2026-01-01")
         data = res.json()
@@ -77,6 +87,218 @@ class TestGetLimitStocks:
         assert data["limit_up_count"] == 0
         assert data["limit_down_count"] == 0
 
+    @patch("tw_stock_hot.web.routers.hot._query_tpex_limit_stocks")
+    @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
+    def test_tpex_stocks_included(self, mock_twse, mock_tpex, client):
+        """TPEX 漲停股票也應被包含在結果中。"""
+        mock_twse.return_value = []
+        mock_tpex.return_value = [
+            {
+                "code": "6547",
+                "name": "高端疫苗",
+                "close_price": 220.00,
+                "price_change": 20.00,
+                "change_pct": 10.0,
+                "industry": "未分類",
+            }
+        ]
+
+        res = client.get("/api/hot/limit?date=2026-03-02")
+        data = res.json()
+        assert data["limit_up_count"] == 1
+        assert data["limit_up"][0]["code"] == "6547"
+        assert data["limit_up"][0]["industry"] == "未分類"
+
+
+# ============================================================
+# /api/hot/top-volume
+# ============================================================
+
+class TestGetTopVolume:
+    """測試 /api/hot/top-volume 端點。"""
+
+    @patch("tw_stock_hot.web.routers.hot.tpex_engine")
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_response_format(self, mock_twse_eng, mock_tpex_eng, client):
+        """回應應包含 stocks 清單與 date。"""
+        mock_twse_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_twse_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_twse_conn.execute.return_value.mappings.return_value.all.return_value = [
+            {
+                "code": "2330", "name": "台積電",
+                "trade_volume": 50000000, "trade_value": 55000000000,
+                "close_price": 1100.00, "price_change": 10.00,
+                "change_pct": 0.92, "industry": "半導體業", "market": "TWSE",
+            }
+        ]
+
+        mock_tpex_conn = MagicMock()
+        mock_tpex_eng.connect.return_value.__enter__ = lambda _: mock_tpex_conn
+        mock_tpex_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_tpex_conn.execute.return_value.mappings.return_value.all.return_value = []
+
+        res = client.get("/api/hot/top-volume?date=2026-03-02")
+        assert res.status_code == 200
+
+        data = res.json()
+        assert "date" in data
+        assert "stocks" in data
+        assert len(data["stocks"]) == 1
+        assert data["stocks"][0]["code"] == "2330"
+        assert data["stocks"][0]["trade_volume"] == 50000000
+
+    @patch("tw_stock_hot.web.routers.hot.tpex_engine")
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_combined_sorted_by_volume(self, mock_twse_eng, mock_tpex_eng, client):
+        """TWSE 與 TPEX 合併後應依交易量降冪排序。"""
+        mock_twse_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_twse_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_twse_conn.execute.return_value.mappings.return_value.all.return_value = [
+            {
+                "code": "2330", "name": "台積電",
+                "trade_volume": 30000000, "trade_value": 33000000000,
+                "close_price": 1100.00, "price_change": 10.00,
+                "change_pct": 0.92, "industry": "半導體業", "market": "TWSE",
+            }
+        ]
+
+        mock_tpex_conn = MagicMock()
+        mock_tpex_eng.connect.return_value.__enter__ = lambda _: mock_tpex_conn
+        mock_tpex_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_tpex_conn.execute.return_value.mappings.return_value.all.return_value = [
+            {
+                "code": "6547", "name": "高端疫苗",
+                "trade_volume": 80000000, "trade_value": 17600000000,
+                "close_price": 220.00, "price_change": 5.00,
+                "change_pct": 2.33, "industry": "未分類", "market": "TPEX",
+            }
+        ]
+
+        res = client.get("/api/hot/top-volume?date=2026-03-02")
+        data = res.json()
+        assert data["stocks"][0]["code"] == "6547"
+        assert data["stocks"][1]["code"] == "2330"
+
+
+# ============================================================
+# /api/hot/top-value
+# ============================================================
+
+class TestGetTopValue:
+    """測試 /api/hot/top-value 端點。"""
+
+    @patch("tw_stock_hot.web.routers.hot.tpex_engine")
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_response_format(self, mock_twse_eng, mock_tpex_eng, client):
+        """回應應包含 stocks 清單與 date。"""
+        mock_twse_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_twse_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_twse_conn.execute.return_value.mappings.return_value.all.return_value = [
+            {
+                "code": "2330", "name": "台積電",
+                "trade_volume": 50000000, "trade_value": 55000000000,
+                "close_price": 1100.00, "price_change": 10.00,
+                "change_pct": 0.92, "industry": "半導體業", "market": "TWSE",
+            }
+        ]
+
+        mock_tpex_conn = MagicMock()
+        mock_tpex_eng.connect.return_value.__enter__ = lambda _: mock_tpex_conn
+        mock_tpex_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_tpex_conn.execute.return_value.mappings.return_value.all.return_value = []
+
+        res = client.get("/api/hot/top-value?date=2026-03-02")
+        assert res.status_code == 200
+
+        data = res.json()
+        assert "date" in data
+        assert "stocks" in data
+        assert len(data["stocks"]) == 1
+        assert data["stocks"][0]["trade_value"] == 55000000000
+
+    @patch("tw_stock_hot.web.routers.hot.tpex_engine")
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_combined_sorted_by_value(self, mock_twse_eng, mock_tpex_eng, client):
+        """TWSE 與 TPEX 合併後應依交易金額降冪排序。"""
+        mock_twse_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_twse_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_twse_conn.execute.return_value.mappings.return_value.all.return_value = [
+            {
+                "code": "2330", "name": "台積電",
+                "trade_volume": 50000000, "trade_value": 55000000000,
+                "close_price": 1100.00, "price_change": 10.00,
+                "change_pct": 0.92, "industry": "半導體業", "market": "TWSE",
+            }
+        ]
+
+        mock_tpex_conn = MagicMock()
+        mock_tpex_eng.connect.return_value.__enter__ = lambda _: mock_tpex_conn
+        mock_tpex_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_tpex_conn.execute.return_value.mappings.return_value.all.return_value = [
+            {
+                "code": "6547", "name": "高端疫苗",
+                "trade_volume": 80000000, "trade_value": 17600000000,
+                "close_price": 220.00, "price_change": 5.00,
+                "change_pct": 2.33, "industry": "未分類", "market": "TPEX",
+            }
+        ]
+
+        res = client.get("/api/hot/top-value?date=2026-03-02")
+        data = res.json()
+        # 台積電交易金額 55B > 高端 17.6B
+        assert data["stocks"][0]["code"] == "2330"
+        assert data["stocks"][1]["code"] == "6547"
+
+
+# ============================================================
+# /api/hot/industry-change
+# ============================================================
+
+class TestGetIndustryChange:
+    """測試 /api/hot/industry-change 端點。"""
+
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_response_format(self, mock_twse_eng, client):
+        """回應應包含 industries 清單與 date。"""
+        mock_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.mappings.return_value.all.return_value = [
+            {"industry": "半導體業", "stock_count": 30, "avg_change_pct": 2.15},
+            {"industry": "金融保險業", "stock_count": 25, "avg_change_pct": 1.05},
+        ]
+
+        res = client.get("/api/hot/industry-change?date=2026-03-02")
+        assert res.status_code == 200
+
+        data = res.json()
+        assert "date" in data
+        assert "industries" in data
+        assert len(data["industries"]) == 2
+        assert data["industries"][0]["industry"] == "半導體業"
+        assert data["industries"][0]["stock_count"] == 30
+        assert data["industries"][0]["avg_change_pct"] == 2.15
+
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_empty_result(self, mock_twse_eng, client):
+        """無資料時應回傳空清單。"""
+        mock_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.mappings.return_value.all.return_value = []
+
+        res = client.get("/api/hot/industry-change?date=2026-01-01")
+        data = res.json()
+        assert data["industries"] == []
+
+
+# ============================================================
+# /api/hot/dates
+# ============================================================
 
 class TestGetAvailableDates:
     """測試 /api/hot/dates 端點。"""
@@ -97,6 +319,10 @@ class TestGetAvailableDates:
         assert "dates" in data
 
 
+# ============================================================
+# 路由註冊
+# ============================================================
+
 class TestRouteRegistered:
     """測試路由是否正確註冊。"""
 
@@ -109,3 +335,18 @@ class TestRouteRegistered:
         """日期路由應存在。"""
         routes = [r.path for r in app.routes]
         assert "/api/hot/dates" in routes
+
+    def test_hot_top_volume_route_exists(self, client):
+        """交易量排行路由應存在。"""
+        routes = [r.path for r in app.routes]
+        assert "/api/hot/top-volume" in routes
+
+    def test_hot_top_value_route_exists(self, client):
+        """交易金額排行路由應存在。"""
+        routes = [r.path for r in app.routes]
+        assert "/api/hot/top-value" in routes
+
+    def test_hot_industry_change_route_exists(self, client):
+        """產業漲幅排行路由應存在。"""
+        routes = [r.path for r in app.routes]
+        assert "/api/hot/industry-change" in routes

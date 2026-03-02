@@ -1,0 +1,121 @@
+.industry-rank-page {
+  width: 100%;
+}
+
+.industry-rank-section {
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 1.5rem;
+}
+
+.industry-rank-note {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0 0 1.25rem 0;
+  text-align: center;
+}
+
+.industry-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.industry-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.industry-bar-rank {
+  width: 1.5rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #6366f1;
+  flex-shrink: 0;
+}
+
+.industry-bar-name {
+  width: 120px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #334155;
+  text-align: right;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.industry-bar-track {
+  flex: 1;
+  height: 24px;
+  background: #f1f5f9;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.industry-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  min-width: 4px;
+  transition: width 0.4s ease;
+}
+
+.bar-positive {
+  background: linear-gradient(90deg, #fca5a5, #ef4444);
+}
+
+.bar-negative {
+  background: linear-gradient(90deg, #86efac, #22c55e);
+}
+
+.industry-bar-pct {
+  width: 5rem;
+  text-align: right;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.industry-bar-count {
+  width: 3.5rem;
+  text-align: right;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.text-red {
+  color: #dc2626;
+}
+
+.text-green {
+  color: #16a34a;
+}
+
+.empty {
+  text-align: center;
+  color: #94a3b8;
+  padding: 2.5rem;
+  font-size: 1rem;
+}
+
+@media (max-width: 640px) {
+  .industry-bar-name {
+    width: 80px;
+    font-size: 0.8rem;
+  }
+
+  .industry-bar-pct {
+    width: 4rem;
+    font-size: 0.8rem;
+  }
+
+  .industry-bar-count {
+    display: none;
+  }
+}

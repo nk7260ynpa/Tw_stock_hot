@@ -1,0 +1,91 @@
+.rank-page {
+  width: 100%;
+}
+
+.rank-section {
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.rank-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.rank-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid #e2e8f0;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  background: #f8fafc;
+}
+
+.rank-table td {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.rank-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.cell-rank {
+  text-align: center;
+  font-weight: 700;
+  color: #6366f1;
+  width: 2.5rem;
+}
+
+.cell-code {
+  font-weight: 600;
+  color: #334155;
+}
+
+.cell-industry {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.cell-market {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.cell-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-red {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.text-green {
+  color: #16a34a;
+  font-weight: 500;
+}
+
+.empty {
+  text-align: center;
+  color: #94a3b8;
+  padding: 2.5rem;
+  font-size: 1rem;
+}
+
+@media (max-width: 640px) {
+  .rank-table {
+    font-size: 0.8rem;
+  }
+
+  .rank-table th,
+  .rank-table td {
+    padding: 0.5rem 0.5rem;
+  }
+}
