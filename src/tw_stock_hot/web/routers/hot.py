@@ -96,17 +96,17 @@ def _query_tpex_limit_stocks(target_date: date) -> list[dict]:
     sql = text("""
         SELECT
             dp.Code AS code,
-            sn.StockName AS name,
-            dp.ClosingPrice AS close_price,
+            sn.Name AS name,
+            dp.Close AS close_price,
             dp.Change AS price_change,
-            ROUND(dp.Change / (dp.ClosingPrice - dp.Change) * 100, 2) AS change_pct,
+            ROUND(dp.Change / (dp.Close - dp.Change) * 100, 2) AS change_pct,
             '未分類' AS industry
         FROM DailyPrice dp
         LEFT JOIN StockName sn ON dp.Code = sn.Code
         WHERE dp.Date = :target_date
             AND dp.Code REGEXP '^[0-9]{4}$'
-            AND dp.ClosingPrice > 0
-            AND (dp.ClosingPrice - dp.Change) > 0
+            AND dp.Close > 0
+            AND (dp.Close - dp.Change) > 0
     """)
     with tpex_engine.connect() as conn:
         rows = conn.execute(sql, {"target_date": target_date}).mappings().all()
@@ -184,20 +184,20 @@ def get_top_volume(
     tpex_sql = text("""
         SELECT
             dp.Code AS code,
-            sn.StockName AS name,
+            sn.Name AS name,
             dp.TradeVolume AS trade_volume,
-            dp.TradeValue AS trade_value,
-            dp.ClosingPrice AS close_price,
+            dp.TradeAmount AS trade_value,
+            dp.Close AS close_price,
             dp.Change AS price_change,
-            ROUND(dp.Change / (dp.ClosingPrice - dp.Change) * 100, 2) AS change_pct,
+            ROUND(dp.Change / (dp.Close - dp.Change) * 100, 2) AS change_pct,
             '未分類' AS industry,
             'TPEX' AS market
         FROM DailyPrice dp
         LEFT JOIN StockName sn ON dp.Code = sn.Code
         WHERE dp.Date = :target_date
             AND dp.Code REGEXP '^[0-9]{4}$'
-            AND dp.ClosingPrice > 0
-            AND (dp.ClosingPrice - dp.Change) > 0
+            AND dp.Close > 0
+            AND (dp.Close - dp.Change) > 0
         ORDER BY dp.TradeVolume DESC
         LIMIT 10
     """)
@@ -258,21 +258,21 @@ def get_top_value(
     tpex_sql = text("""
         SELECT
             dp.Code AS code,
-            sn.StockName AS name,
+            sn.Name AS name,
             dp.TradeVolume AS trade_volume,
-            dp.TradeValue AS trade_value,
-            dp.ClosingPrice AS close_price,
+            dp.TradeAmount AS trade_value,
+            dp.Close AS close_price,
             dp.Change AS price_change,
-            ROUND(dp.Change / (dp.ClosingPrice - dp.Change) * 100, 2) AS change_pct,
+            ROUND(dp.Change / (dp.Close - dp.Change) * 100, 2) AS change_pct,
             '未分類' AS industry,
             'TPEX' AS market
         FROM DailyPrice dp
         LEFT JOIN StockName sn ON dp.Code = sn.Code
         WHERE dp.Date = :target_date
             AND dp.Code REGEXP '^[0-9]{4}$'
-            AND dp.ClosingPrice > 0
-            AND (dp.ClosingPrice - dp.Change) > 0
-        ORDER BY dp.TradeValue DESC
+            AND dp.Close > 0
+            AND (dp.Close - dp.Change) > 0
+        ORDER BY dp.TradeAmount DESC
         LIMIT 10
     """)
 
