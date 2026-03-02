@@ -1,0 +1,60 @@
+.table-wrapper {
+  overflow-x: auto;
+  margin-top: 0.75rem;
+}
+
+.stock-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.stock-table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.stock-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.stock-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.cell-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-code {
+  font-weight: 600;
+  color: #334155;
+}
+
+.cell-industry {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.text-red {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.text-blue {
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.empty {
+  text-align: center;
+  color: #94a3b8;
+  padding: 1.5rem;
+}

@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=75.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tw_stock_hot"
+version = "1.0.0"
+description = "台股綜合熱度平台 - 漲跌停排行與產業熱度分析"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy",
+    "pymysql",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "httpx",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

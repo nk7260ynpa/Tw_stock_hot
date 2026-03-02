@@ -1,0 +1,7 @@
+# 台股綜合熱度平台依賴套件
+fastapi>=0.115.0
+uvicorn>=0.34.0
+sqlalchemy>=2.0.0
+pymysql>=1.1.0
+pytest>=8.0
+httpx>=0.28.0

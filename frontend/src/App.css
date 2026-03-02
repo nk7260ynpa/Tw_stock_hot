@@ -1,0 +1,119 @@
+.app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.app-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.25rem 0;
+}
+
+.app-subtitle {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.date-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  font-size: 0.95rem;
+}
+
+.date-picker select {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  background: #fff;
+}
+
+.current-date {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.status {
+  text-align: center;
+  color: #64748b;
+  padding: 2rem;
+}
+
+.status.error {
+  color: #dc2626;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.section {
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.section-header h2 {
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.limit-up-header {
+  background: #fef2f2;
+}
+
+.limit-up-header h2 {
+  color: #dc2626;
+}
+
+.limit-down-header {
+  background: #eff6ff;
+}
+
+.limit-down-header h2 {
+  color: #2563eb;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.badge-up {
+  background: #fecaca;
+  color: #dc2626;
+}
+
+.badge-down {
+  background: #bfdbfe;
+  color: #2563eb;
+}
+
+.section-body {
+  padding: 1rem 1.25rem;
+}
