@@ -19,11 +19,10 @@ def client():
 # ============================================================
 
 class TestGetLimitStocks:
-    """測試 /api/hot/limit 端點。"""
+    """測試 /api/hot/limit 端點（僅 TWSE 上市股票）。"""
 
-    @patch("tw_stock_hot.web.routers.hot._query_tpex_limit_stocks")
     @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
-    def test_response_format(self, mock_twse, mock_tpex, client):
+    def test_response_format(self, mock_twse, client):
         """回應應包含漲停與跌停清單。"""
         mock_twse.return_value = [
             {
@@ -35,7 +34,6 @@ class TestGetLimitStocks:
                 "industry": "半導體業",
             }
         ]
-        mock_tpex.return_value = []
 
         res = client.get("/api/hot/limit?date=2026-03-02")
         assert res.status_code == 200
@@ -51,9 +49,8 @@ class TestGetLimitStocks:
         assert data["limit_up"][0]["code"] == "2330"
         assert data["limit_up"][0]["industry"] == "半導體業"
 
-    @patch("tw_stock_hot.web.routers.hot._query_tpex_limit_stocks")
     @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
-    def test_industry_stats(self, mock_twse, mock_tpex, client):
+    def test_industry_stats(self, mock_twse, client):
         """產業統計應正確計算。"""
         mock_twse.return_value = [
             {"code": "2330", "name": "台積電", "close_price": 1100.00,
@@ -63,7 +60,6 @@ class TestGetLimitStocks:
             {"code": "2317", "name": "鴻海", "close_price": 165.00,
              "price_change": 15.00, "change_pct": 10.0, "industry": "其他電子業"},
         ]
-        mock_tpex.return_value = []
 
         res = client.get("/api/hot/limit?date=2026-03-02")
         data = res.json()
@@ -73,12 +69,10 @@ class TestGetLimitStocks:
         assert stats[1]["industry"] == "其他電子業"
         assert stats[1]["count"] == 1
 
-    @patch("tw_stock_hot.web.routers.hot._query_tpex_limit_stocks")
     @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
-    def test_empty_result(self, mock_twse, mock_tpex, client):
+    def test_empty_result(self, mock_twse, client):
         """無資料時應回傳空清單。"""
         mock_twse.return_value = []
-        mock_tpex.return_value = []
 
         res = client.get("/api/hot/limit?date=2026-01-01")
         data = res.json()
@@ -87,27 +81,25 @@ class TestGetLimitStocks:
         assert data["limit_up_count"] == 0
         assert data["limit_down_count"] == 0
 
-    @patch("tw_stock_hot.web.routers.hot._query_tpex_limit_stocks")
     @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
-    def test_tpex_stocks_included(self, mock_twse, mock_tpex, client):
-        """TPEX 漲停股票也應被包含在結果中。"""
-        mock_twse.return_value = []
-        mock_tpex.return_value = [
+    def test_missing_industry_shows_unclassified(self, mock_twse, client):
+        """TWSE 股票缺少 CompanyInfo 或 IndustryMap 時產業應為「未分類」。"""
+        mock_twse.return_value = [
             {
-                "code": "6547",
-                "name": "高端疫苗",
-                "close_price": 220.00,
-                "price_change": 20.00,
+                "code": "9999",
+                "name": "測試股",
+                "close_price": 110.00,
+                "price_change": 10.00,
                 "change_pct": 10.0,
-                "industry": "未分類",
+                "industry": "",
             }
         ]
 
         res = client.get("/api/hot/limit?date=2026-03-02")
         data = res.json()
         assert data["limit_up_count"] == 1
-        assert data["limit_up"][0]["code"] == "6547"
-        assert data["limit_up"][0]["industry"] == "未分類"
+        stats = data["limit_up_industry_stats"]
+        assert stats[0]["industry"] == "未分類"
 
 
 # ============================================================

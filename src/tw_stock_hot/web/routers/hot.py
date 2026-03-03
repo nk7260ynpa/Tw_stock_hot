@@ -91,41 +91,18 @@ def _industry_stats(stocks: list[dict]) -> list[dict]:
     return result
 
 
-def _query_tpex_limit_stocks(target_date: date) -> list[dict]:
-    """查詢 TPEX 漲跌停股票。"""
-    sql = text("""
-        SELECT
-            dp.Code AS code,
-            sn.Name AS name,
-            dp.Close AS close_price,
-            dp.Change AS price_change,
-            ROUND(dp.Change / (dp.Close - dp.Change) * 100, 2) AS change_pct,
-            '未分類' AS industry
-        FROM DailyPrice dp
-        LEFT JOIN StockName sn ON dp.Code = sn.Code
-        WHERE dp.Date = :target_date
-            AND dp.Code REGEXP '^[0-9]{4}$'
-            AND dp.Close > 0
-            AND (dp.Close - dp.Change) > 0
-    """)
-    with tpex_engine.connect() as conn:
-        rows = conn.execute(sql, {"target_date": target_date}).mappings().all()
-    return [dict(r) for r in rows]
-
-
 @router.get("/limit")
 def get_limit_stocks(
     date_str: str | None = Query(None, alias="date", description="查詢日期 YYYY-MM-DD"),
 ) -> dict:
     """取得指定日期的漲停板與跌停板股票。
 
-    合併 TWSE 與 TPEX 的漲跌停資料。
+    僅查詢 TWSE 上市股票（TPEX 無產業對照資料，不納入漲跌停排行）。
     """
     target_date = date.fromisoformat(date_str) if date_str else date.today()
     logger.info("查詢漲跌停: %s", target_date)
 
     all_stocks = _query_twse_limit_stocks(target_date)
-    all_stocks.extend(_query_tpex_limit_stocks(target_date))
 
     limit_up, limit_down = _classify_stocks(all_stocks)
 

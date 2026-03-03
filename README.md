@@ -8,7 +8,7 @@
 
 ## 功能
 
-- **漲跌停排行**：每日漲停板/跌停板股票清單（TWSE + TPEX）及產業分布統計
+- **漲跌停排行**：每日漲停板/跌停板股票清單（僅 TWSE 上市股票）及產業分布統計
 - **交易量 TOP 10**：當日成交量最大的 10 檔股票（合併 TWSE + TPEX）
 - **交易金額 TOP 10**：當日成交金額最高的 10 檔股票（合併 TWSE + TPEX）
 - **產業漲幅排行**：各產業平均漲跌幅前 10 名（僅 TWSE，TPEX 無產業分類）
@@ -129,7 +129,8 @@ bash run.sh
 - MySQL TPEX 資料庫：DailyPrice、StockName
 - 漲跌停判斷：漲跌幅 >= 9.5%（10% 限制留容差）
 - 僅保留 4 位數股票代碼（排除權證等衍生商品）
-- 產業別：TWSE 透過 CompanyInfo.IndustryCode 對應 IndustryMap.Industry；TPEX 無 IndustryMap 標為「未分類」
+- 漲跌停排行僅查詢 TWSE 上市股票（TPEX 無產業對照資料，不納入漲跌停排行）
+- 產業別：TWSE 透過 CompanyInfo.IndustryCode 對應 IndustryMap.Industry；缺少對應資料時標為「未分類」
 
 ## 技術棧
 
