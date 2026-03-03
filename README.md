@@ -2,6 +2,10 @@
 
 台股綜合熱度平台 -- Dashboard 式的台股熱度分析工具。
 
+## 版本
+
+目前版本：`1.0.0`
+
 ## 功能
 
 - **漲跌停排行**：每日漲停板/跌停板股票清單（TWSE + TPEX）及產業分布統計
@@ -14,6 +18,9 @@
 
 ```
 Tw_stock_hot/
+├── .github/
+│   └── workflows/
+│       └── docker-publish.yml  # GitHub Actions CI/CD
 ├── docker/
 │   ├── build.sh              # 建立 Docker image
 │   └── Dockerfile            # Multi-stage build（Node + Python）
@@ -131,3 +138,28 @@ bash run.sh
 - 部署：Docker（multi-stage build），連接 `db_network`
 - Docker Image：`nk7260ynpa/tw_stock_hot:latest`
 - 服務端口：5050
+
+## CI/CD
+
+使用 GitHub Actions 自動建置並推送 Docker image 至 DockerHub。
+
+- **觸發條件**：推送符合 `v*.*.*` 格式的 Git tag
+- **產出**：同時推送版本號 tag（如 `1.0.0`）與 `latest` tag
+- **Workflow 檔案**：`.github/workflows/docker-publish.yml`
+
+### 發布新版本
+
+```bash
+# 1. 更新 pyproject.toml 中的版本號
+# 2. Commit 所有變更
+# 3. 建立 tag 並推送
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+### 必要的 GitHub Secrets
+
+| Secret | 說明 |
+|--------|------|
+| `DOCKER_USERNAME` | DockerHub 帳號 |
+| `DOCKER_PASSWORD` | DockerHub 密碼或 Access Token |
