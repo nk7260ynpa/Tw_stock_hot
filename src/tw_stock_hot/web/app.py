@@ -42,6 +42,9 @@ if STATIC_DIR is not None:
         file_path = STATIC_DIR / full_path
         if file_path.is_file():
             return FileResponse(file_path)
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(
+            STATIC_DIR / "index.html",
+            headers={"Cache-Control": "no-cache"},
+        )
 else:
     logger.warning("找不到前端靜態檔案目錄，嘗試路徑: %s", _static_candidates)
