@@ -24,7 +24,16 @@ function LimitStockTable({ stocks, type }) {
             <tr key={s.code}>
               <td className="cell-num">{i + 1}</td>
               <td className="cell-code">{s.code}</td>
-              <td>{s.name}</td>
+              <td>
+                <a
+                  href={`http://localhost:7938/?code=${s.code}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="stock-link"
+                >
+                  {s.name}
+                </a>
+              </td>
               <td className="cell-industry">{s.industry || '-'}</td>
               <td className="cell-num">{s.close_price.toFixed(2)}</td>
               <td className={`cell-num ${type === 'up' ? 'text-red' : 'text-blue'}`}>
