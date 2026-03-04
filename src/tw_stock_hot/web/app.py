@@ -44,7 +44,7 @@ if STATIC_DIR is not None:
             return FileResponse(file_path)
         return FileResponse(
             STATIC_DIR / "index.html",
-            headers={"Cache-Control": "no-cache"},
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
         )
 else:
     logger.warning("找不到前端靜態檔案目錄，嘗試路徑: %s", _static_candidates)
