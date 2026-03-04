@@ -96,7 +96,16 @@ function RankTable({ title, fetchData, rankField, rankLabel, onBack }) {
                       <tr key={s.code}>
                         <td className="cell-rank">{i + 1}</td>
                         <td className="cell-code">{s.code}</td>
-                        <td>{s.name}</td>
+                        <td>
+                          <a
+                            href={`http://localhost:7938/?code=${s.code}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="stock-link"
+                          >
+                            {s.name}
+                          </a>
+                        </td>
                         <td className="cell-industry">{s.industry || '-'}</td>
                         <td className="cell-market">{s.market}</td>
                         <td className="cell-num">{formatNumber(s[rankField])}</td>

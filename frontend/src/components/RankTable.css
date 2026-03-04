@@ -72,6 +72,17 @@
   font-weight: 500;
 }
 
+.stock-link {
+  color: #1e40af;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.stock-link:hover {
+  text-decoration: underline;
+  color: #1d4ed8;
+}
+
 .empty {
   text-align: center;
   color: #94a3b8;
