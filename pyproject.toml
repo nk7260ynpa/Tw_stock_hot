@@ -13,6 +13,7 @@ dependencies = [
     "uvicorn",
     "sqlalchemy",
     "pymysql",
+    "cryptography",
 ]
 
 [project.optional-dependencies]
