@@ -289,6 +289,86 @@ class TestGetIndustryChange:
 
 
 # ============================================================
+# /api/hot/industry-ratio
+# ============================================================
+
+class TestGetIndustryRatio:
+    """測試 /api/hot/industry-ratio 端點。"""
+
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_response_format(self, mock_twse_eng, client):
+        """回應應包含 industries 清單與完整欄位。"""
+        mock_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.mappings.return_value.all.return_value = [
+            {
+                "industry": "半導體業",
+                "total_count": 30,
+                "up_count": 20,
+                "down_count": 5,
+                "ratio_pct": 50.0,
+            },
+            {
+                "industry": "金融保險業",
+                "total_count": 25,
+                "up_count": 10,
+                "down_count": 12,
+                "ratio_pct": -8.0,
+            },
+        ]
+
+        res = client.get("/api/hot/industry-ratio?date=2026-03-02")
+        assert res.status_code == 200
+
+        data = res.json()
+        assert "date" in data
+        assert "industries" in data
+        assert len(data["industries"]) == 2
+
+        first = data["industries"][0]
+        assert first["industry"] == "半導體業"
+        assert first["ratio_pct"] == 50.0
+        assert first["up_count"] == 20
+        assert first["down_count"] == 5
+        assert first["total_count"] == 30
+
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_negative_ratio(self, mock_twse_eng, client):
+        """跌多於漲的產業應有負的 ratio_pct。"""
+        mock_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.mappings.return_value.all.return_value = [
+            {
+                "industry": "航運業",
+                "total_count": 10,
+                "up_count": 2,
+                "down_count": 7,
+                "ratio_pct": -50.0,
+            },
+        ]
+
+        res = client.get("/api/hot/industry-ratio?date=2026-03-02")
+        data = res.json()
+        assert data["industries"][0]["ratio_pct"] == -50.0
+        assert data["industries"][0]["up_count"] == 2
+        assert data["industries"][0]["down_count"] == 7
+
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_empty_result(self, mock_twse_eng, client):
+        """無資料時應回傳空清單。"""
+        mock_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.mappings.return_value.all.return_value = []
+
+        res = client.get("/api/hot/industry-ratio?date=2026-01-01")
+        data = res.json()
+        assert data["industries"] == []
+
+
+# ============================================================
 # /api/hot/dates
 # ============================================================
 
@@ -342,3 +422,8 @@ class TestRouteRegistered:
         """產業漲幅排行路由應存在。"""
         routes = [r.path for r in app.routes]
         assert "/api/hot/industry-change" in routes
+
+    def test_hot_industry_ratio_route_exists(self, client):
+        """產業漲幅佔比排行路由應存在。"""
+        routes = [r.path for r in app.routes]
+        assert "/api/hot/industry-ratio" in routes

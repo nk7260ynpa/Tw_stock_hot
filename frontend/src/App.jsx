@@ -3,6 +3,7 @@ import HotDashboard from './components/HotDashboard'
 import LimitStocks from './components/LimitStocks'
 import RankTable from './components/RankTable'
 import IndustryRank from './components/IndustryRank'
+import IndustryRatioRank from './components/IndustryRatioRank'
 import { fetchTopVolume, fetchTopValue } from './api/hot'
 import './App.css'
 
@@ -57,6 +58,14 @@ function App() {
     return (
       <div className="app">
         <IndustryRank onBack={handleBackToHome} />
+      </div>
+    )
+  }
+
+  if (currentView === 'industry-ratio') {
+    return (
+      <div className="app">
+        <IndustryRatioRank onBack={handleBackToHome} />
       </div>
     )
   }

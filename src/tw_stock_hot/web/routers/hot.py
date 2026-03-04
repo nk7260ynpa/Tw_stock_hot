@@ -315,6 +315,57 @@ def get_industry_change(
     return {"date": str(target_date), "industries": industries}
 
 
+@router.get("/industry-ratio")
+def get_industry_ratio(
+    date_str: str | None = Query(None, alias="date", description="查詢日期 YYYY-MM-DD"),
+) -> dict:
+    """取得指定日期各產業漲幅佔比排行。
+
+    僅使用 TWSE 資料（TPEX 無產業分類）。
+    漲幅佔比公式：(漲的公司數 - 跌的公司數) / 該產業總公司數 * 100。
+    依漲幅佔比降冪排序。
+    """
+    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    logger.info("查詢產業漲幅佔比排行: %s", target_date)
+
+    sql = text("""
+        SELECT
+            im.Industry AS industry,
+            COUNT(*) AS total_count,
+            SUM(CASE WHEN dp.Change > 0 THEN 1 ELSE 0 END) AS up_count,
+            SUM(CASE WHEN dp.Change < 0 THEN 1 ELSE 0 END) AS down_count,
+            ROUND(
+                (SUM(CASE WHEN dp.Change > 0 THEN 1 ELSE 0 END)
+                 - SUM(CASE WHEN dp.Change < 0 THEN 1 ELSE 0 END))
+                / COUNT(*) * 100, 2
+            ) AS ratio_pct
+        FROM DailyPrice dp
+        INNER JOIN CompanyInfo ci ON dp.SecurityCode = ci.SecurityCode
+        INNER JOIN IndustryMap im ON ci.IndustryCode = im.IndustryCode
+        WHERE dp.Date = :target_date
+            AND dp.SecurityCode REGEXP '^[0-9]{4}$'
+            AND dp.ClosingPrice > 0
+            AND (dp.ClosingPrice - dp.Change) > 0
+        GROUP BY im.Industry
+        ORDER BY ratio_pct DESC
+    """)
+
+    with twse_engine.connect() as conn:
+        rows = conn.execute(sql, {"target_date": target_date}).mappings().all()
+
+    industries = []
+    for r in rows:
+        industries.append({
+            "industry": r["industry"],
+            "ratio_pct": _to_float(r["ratio_pct"]),
+            "up_count": int(r["up_count"]),
+            "down_count": int(r["down_count"]),
+            "total_count": int(r["total_count"]),
+        })
+
+    return {"date": str(target_date), "industries": industries}
+
+
 @router.get("/dates")
 def get_available_dates(
     limit: int = Query(30, description="回傳筆數"),

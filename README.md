@@ -12,6 +12,7 @@
 - **交易量 TOP 10**：當日成交量最大的 10 檔股票（合併 TWSE + TPEX）
 - **交易金額 TOP 10**：當日成交金額最高的 10 檔股票（合併 TWSE + TPEX）
 - **產業漲幅排行**：各產業平均漲跌幅前 10 名（僅 TWSE，TPEX 無產業分類）
+- **產業漲幅佔比排行**：各產業漲跌公司數佔比分析（僅 TWSE），公式為 (漲的公司數 - 跌的公司數) / 產業總公司數
 - 歷史交易日切換
 
 ## 專案架構
@@ -53,7 +54,9 @@ Tw_stock_hot/
 │           ├── RankTable.jsx        # 通用排行表格（交易量/金額）
 │           ├── RankTable.css
 │           ├── IndustryRank.jsx     # 產業漲幅排行
-│           └── IndustryRank.css
+│           ├── IndustryRank.css
+│           ├── IndustryRatioRank.jsx  # 產業漲幅佔比排行
+│           └── IndustryRatioRank.css
 ├── tests/
 │   └── test_hot_api.py
 ├── logs/
@@ -83,6 +86,7 @@ bash run.sh
 | `/api/hot/top-volume` | GET | 交易量前 10 名（`?date=YYYY-MM-DD`） |
 | `/api/hot/top-value` | GET | 交易金額前 10 名（`?date=YYYY-MM-DD`） |
 | `/api/hot/industry-change` | GET | 產業平均漲跌幅前 10 名（`?date=YYYY-MM-DD`） |
+| `/api/hot/industry-ratio` | GET | 產業漲幅佔比排行（`?date=YYYY-MM-DD`） |
 | `/api/hot/dates` | GET | 可查詢的交易日清單（`?limit=30`） |
 
 ### API 回應範例
@@ -118,6 +122,23 @@ bash run.sh
       "industry": "半導體業",
       "stock_count": 30,
       "avg_change_pct": 2.15
+    }
+  ]
+}
+```
+
+#### `/api/hot/industry-ratio`
+
+```json
+{
+  "date": "2026-03-02",
+  "industries": [
+    {
+      "industry": "半導體業",
+      "ratio_pct": 50.0,
+      "up_count": 20,
+      "down_count": 5,
+      "total_count": 30
     }
   ]
 }

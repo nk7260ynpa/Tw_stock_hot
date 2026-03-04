@@ -25,6 +25,12 @@ const cards = [
     title: '\u7522\u696D\u6F32\u5E45\u6392\u884C',
     description: '\u5404\u7522\u696D\u5E73\u5747\u6F32\u8DCC\u5E45\u524D10\u540D\u6392\u884C',
   },
+  {
+    key: 'industry-ratio',
+    icon: '\uD83D\uDCC8',
+    title: '\u7522\u696D\u6F32\u5E45\u4F54\u6BD4\u6392\u884C',
+    description: '\u5404\u7522\u696D\u6F32\u8DCC\u516C\u53F8\u6578\u4F54\u6BD4\u5206\u6790',
+  },
 ]
 
 function HotDashboard({ onSelectView }) {
@@ -32,7 +38,7 @@ function HotDashboard({ onSelectView }) {
     <>
       <header className="dashboard-header">
         <h1 className="dashboard-title">台股熱度平台</h1>
-        <p className="dashboard-subtitle">漲跌停排行 / 交易量排行 / 交易額排行 / 產業漲幅</p>
+        <p className="dashboard-subtitle">漲跌停排行 / 交易量排行 / 交易額排行 / 產業漲幅 / 產業佔比</p>
       </header>
       <main>
         <div className="card-grid">

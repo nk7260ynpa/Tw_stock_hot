@@ -35,3 +35,10 @@ export async function fetchIndustryChange(date) {
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   return res.json()
 }
+
+export async function fetchIndustryRatio(date) {
+  const params = date ? `?date=${date}` : ''
+  const res = await fetch(`/api/hot/industry-ratio${params}`)
+  if (!res.ok) throw new Error(`API error: ${res.status}`)
+  return res.json()
+}
