@@ -85,7 +85,7 @@ function IndustryStocks({ industry, date, onBack, backLabel }) {
                         <td className="cell-code">{s.code}</td>
                         <td>
                           <a
-                            href={`http://localhost:7938/stock/${s.code}`}
+                            href={`http://localhost:7938/?code=${s.code}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="stock-link"
