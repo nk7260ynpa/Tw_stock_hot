@@ -141,6 +141,7 @@ def get_top_volume(
             sn.StockName AS name,
             dp.TradeVolume AS trade_volume,
             dp.TradeValue AS trade_value,
+            ROUND(dp.ClosingPrice - dp.Change, 2) AS prev_close,
             dp.OpeningPrice AS open_price,
             dp.ClosingPrice AS close_price,
             dp.Change AS price_change,
@@ -165,6 +166,7 @@ def get_top_volume(
             sn.Name AS name,
             dp.TradeVolume AS trade_volume,
             dp.TradeAmount AS trade_value,
+            ROUND(dp.Close - dp.Change, 2) AS prev_close,
             dp.Open AS open_price,
             dp.Close AS close_price,
             dp.Change AS price_change,
@@ -193,6 +195,7 @@ def get_top_volume(
     for s in top10:
         s["trade_volume"] = _to_float(s["trade_volume"])
         s["trade_value"] = _to_float(s["trade_value"])
+        s["prev_close"] = _to_float(s["prev_close"])
         s["open_price"] = _to_float(s["open_price"])
         s["close_price"] = _to_float(s["close_price"])
         s["price_change"] = _to_float(s["price_change"])
@@ -218,6 +221,7 @@ def get_top_value(
             sn.StockName AS name,
             dp.TradeVolume AS trade_volume,
             dp.TradeValue AS trade_value,
+            ROUND(dp.ClosingPrice - dp.Change, 2) AS prev_close,
             dp.OpeningPrice AS open_price,
             dp.ClosingPrice AS close_price,
             dp.Change AS price_change,
@@ -242,6 +246,7 @@ def get_top_value(
             sn.Name AS name,
             dp.TradeVolume AS trade_volume,
             dp.TradeAmount AS trade_value,
+            ROUND(dp.Close - dp.Change, 2) AS prev_close,
             dp.Open AS open_price,
             dp.Close AS close_price,
             dp.Change AS price_change,
@@ -270,6 +275,7 @@ def get_top_value(
     for s in top10:
         s["trade_volume"] = _to_float(s["trade_volume"])
         s["trade_value"] = _to_float(s["trade_value"])
+        s["prev_close"] = _to_float(s["prev_close"])
         s["open_price"] = _to_float(s["open_price"])
         s["close_price"] = _to_float(s["close_price"])
         s["price_change"] = _to_float(s["price_change"])
@@ -388,6 +394,7 @@ def get_industry_stocks(
         SELECT
             dp.SecurityCode AS code,
             sn.StockName AS name,
+            ROUND(dp.ClosingPrice - dp.Change, 2) AS prev_close,
             dp.OpeningPrice AS open_price,
             dp.ClosingPrice AS close_price,
             dp.Change AS price_change,
@@ -417,6 +424,7 @@ def get_industry_stocks(
         stocks.append({
             "code": r["code"],
             "name": r["name"],
+            "prev_close": _to_float(r["prev_close"]),
             "open_price": _to_float(r["open_price"]),
             "close_price": _to_float(r["close_price"]),
             "price_change": _to_float(r["price_change"]),

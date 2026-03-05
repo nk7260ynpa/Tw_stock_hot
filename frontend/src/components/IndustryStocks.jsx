@@ -67,6 +67,7 @@ function IndustryStocks({ industry, date, onBack, backLabel }) {
                     <th>#</th>
                     <th>代碼</th>
                     <th>名稱</th>
+                    <th>昨收</th>
                     <th>開盤價</th>
                     <th>收盤價</th>
                     <th>漲跌</th>
@@ -92,6 +93,7 @@ function IndustryStocks({ industry, date, onBack, backLabel }) {
                             {s.name}
                           </a>
                         </td>
+                        <td className="cell-num">{s.prev_close.toFixed(2)}</td>
                         <td className="cell-num">{s.open_price.toFixed(2)}</td>
                         <td className="cell-num">{s.close_price.toFixed(2)}</td>
                         <td className={`cell-num ${pctClass}`}>

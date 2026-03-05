@@ -85,6 +85,7 @@ function RankTable({ title, fetchData, rankField, rankLabel, onBack }) {
                     <th>產業</th>
                     <th>市場</th>
                     <th>{rankLabel}</th>
+                    <th>昨收</th>
                     <th>開盤價</th>
                     <th>收盤價</th>
                     <th>漲跌幅</th>
@@ -110,6 +111,7 @@ function RankTable({ title, fetchData, rankField, rankLabel, onBack }) {
                         <td className="cell-industry">{s.industry || '-'}</td>
                         <td className="cell-market">{s.market}</td>
                         <td className="cell-num">{formatNumber(s[rankField])}</td>
+                        <td className="cell-num">{s.prev_close.toFixed(2)}</td>
                         <td className="cell-num">{s.open_price.toFixed(2)}</td>
                         <td className="cell-num">{s.close_price.toFixed(2)}</td>
                         <td className={`cell-num ${pctClass}`}>
