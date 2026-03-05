@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchIndustryChange, fetchAvailableDates } from '../api/hot'
 import './IndustryRank.css'
 
-function IndustryRank({ onBack }) {
+function IndustryRank({ onBack, onSelectIndustry }) {
   const [data, setData] = useState(null)
   const [dates, setDates] = useState([])
   const [selectedDate, setSelectedDate] = useState('')
@@ -71,7 +71,12 @@ function IndustryRank({ onBack }) {
                 return (
                   <div key={item.industry} className="industry-bar-row">
                     <span className="industry-bar-rank">{idx + 1}</span>
-                    <span className="industry-bar-name">{item.industry}</span>
+                    <span
+                      className="industry-bar-name industry-clickable"
+                      onClick={() => onSelectIndustry && onSelectIndustry(item.industry, data.date)}
+                    >
+                      {item.industry}
+                    </span>
                     <div className="industry-bar-track">
                       <div
                         className={`industry-bar-fill ${isPositive ? 'bar-positive' : 'bar-negative'}`}

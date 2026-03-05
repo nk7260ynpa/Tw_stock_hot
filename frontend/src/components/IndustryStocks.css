@@ -1,0 +1,109 @@
+.industry-stocks-page {
+  width: 100%;
+}
+
+.industry-stocks-info {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.info-date {
+  font-weight: 500;
+}
+
+.info-count {
+  color: #6366f1;
+  font-weight: 600;
+}
+
+.industry-stocks-section {
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.industry-stocks-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.industry-stocks-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid #e2e8f0;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  background: #f8fafc;
+}
+
+.industry-stocks-table td {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.industry-stocks-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.industry-stocks-table .cell-rank {
+  text-align: center;
+  font-weight: 700;
+  color: #6366f1;
+  width: 2.5rem;
+}
+
+.industry-stocks-table .cell-code {
+  font-weight: 600;
+  color: #334155;
+}
+
+.industry-stocks-table .cell-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.industry-stocks-table .text-red {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.industry-stocks-table .text-green {
+  color: #16a34a;
+  font-weight: 500;
+}
+
+.industry-stocks-table .stock-link {
+  color: #1e40af;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.industry-stocks-table .stock-link:hover {
+  text-decoration: underline;
+  color: #1d4ed8;
+}
+
+.industry-stocks-table .empty {
+  text-align: center;
+  color: #94a3b8;
+  padding: 2.5rem;
+  font-size: 1rem;
+}
+
+@media (max-width: 640px) {
+  .industry-stocks-table {
+    font-size: 0.8rem;
+  }
+
+  .industry-stocks-table th,
+  .industry-stocks-table td {
+    padding: 0.5rem 0.5rem;
+  }
+}

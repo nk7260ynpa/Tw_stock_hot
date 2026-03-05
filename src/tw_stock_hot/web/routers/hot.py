@@ -141,6 +141,7 @@ def get_top_volume(
             sn.StockName AS name,
             dp.TradeVolume AS trade_volume,
             dp.TradeValue AS trade_value,
+            dp.OpeningPrice AS open_price,
             dp.ClosingPrice AS close_price,
             dp.Change AS price_change,
             ROUND(dp.Change / (dp.ClosingPrice - dp.Change) * 100, 2) AS change_pct,
@@ -164,6 +165,7 @@ def get_top_volume(
             sn.Name AS name,
             dp.TradeVolume AS trade_volume,
             dp.TradeAmount AS trade_value,
+            dp.Open AS open_price,
             dp.Close AS close_price,
             dp.Change AS price_change,
             ROUND(dp.Change / (dp.Close - dp.Change) * 100, 2) AS change_pct,
@@ -191,6 +193,7 @@ def get_top_volume(
     for s in top10:
         s["trade_volume"] = _to_float(s["trade_volume"])
         s["trade_value"] = _to_float(s["trade_value"])
+        s["open_price"] = _to_float(s["open_price"])
         s["close_price"] = _to_float(s["close_price"])
         s["price_change"] = _to_float(s["price_change"])
         s["change_pct"] = _to_float(s["change_pct"])
@@ -215,6 +218,7 @@ def get_top_value(
             sn.StockName AS name,
             dp.TradeVolume AS trade_volume,
             dp.TradeValue AS trade_value,
+            dp.OpeningPrice AS open_price,
             dp.ClosingPrice AS close_price,
             dp.Change AS price_change,
             ROUND(dp.Change / (dp.ClosingPrice - dp.Change) * 100, 2) AS change_pct,
@@ -238,6 +242,7 @@ def get_top_value(
             sn.Name AS name,
             dp.TradeVolume AS trade_volume,
             dp.TradeAmount AS trade_value,
+            dp.Open AS open_price,
             dp.Close AS close_price,
             dp.Change AS price_change,
             ROUND(dp.Change / (dp.Close - dp.Change) * 100, 2) AS change_pct,
@@ -265,6 +270,7 @@ def get_top_value(
     for s in top10:
         s["trade_volume"] = _to_float(s["trade_volume"])
         s["trade_value"] = _to_float(s["trade_value"])
+        s["open_price"] = _to_float(s["open_price"])
         s["close_price"] = _to_float(s["close_price"])
         s["price_change"] = _to_float(s["price_change"])
         s["change_pct"] = _to_float(s["change_pct"])
@@ -364,6 +370,68 @@ def get_industry_ratio(
         })
 
     return {"date": str(target_date), "industries": industries}
+
+
+@router.get("/industry-stocks")
+def get_industry_stocks(
+    date_str: str | None = Query(None, alias="date", description="查詢日期 YYYY-MM-DD"),
+    industry: str = Query(..., description="產業名稱"),
+) -> dict:
+    """取得指定日期、指定產業的個股明細。
+
+    僅查詢 TWSE 上市股票，回傳該產業所有股票的交易資訊。
+    """
+    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    logger.info("查詢產業股票明細: %s, 產業=%s", target_date, industry)
+
+    sql = text("""
+        SELECT
+            dp.SecurityCode AS code,
+            sn.StockName AS name,
+            dp.OpeningPrice AS open_price,
+            dp.ClosingPrice AS close_price,
+            dp.Change AS price_change,
+            ROUND(dp.Change / (dp.ClosingPrice - dp.Change) * 100, 2) AS change_pct,
+            dp.TradeVolume AS trade_volume,
+            dp.TradeValue AS trade_value,
+            im.Industry AS industry
+        FROM DailyPrice dp
+        LEFT JOIN StockName sn ON dp.SecurityCode = sn.SecurityCode
+        INNER JOIN CompanyInfo ci ON dp.SecurityCode = ci.SecurityCode
+        INNER JOIN IndustryMap im ON ci.IndustryCode = im.IndustryCode
+        WHERE dp.Date = :target_date
+            AND dp.SecurityCode REGEXP '^[0-9]{4}$'
+            AND dp.ClosingPrice > 0
+            AND (dp.ClosingPrice - dp.Change) > 0
+            AND im.Industry = :industry
+        ORDER BY change_pct DESC
+    """)
+
+    with twse_engine.connect() as conn:
+        rows = conn.execute(
+            sql, {"target_date": target_date, "industry": industry}
+        ).mappings().all()
+
+    stocks = []
+    for r in rows:
+        stocks.append({
+            "code": r["code"],
+            "name": r["name"],
+            "open_price": _to_float(r["open_price"]),
+            "close_price": _to_float(r["close_price"]),
+            "price_change": _to_float(r["price_change"]),
+            "change_pct": _to_float(r["change_pct"]),
+            "trade_volume": _to_float(r["trade_volume"]),
+            "trade_value": _to_float(r["trade_value"]),
+            "industry": r["industry"],
+        })
+
+    return {
+        "date": str(target_date),
+        "industry": industry,
+        "stock_count": len(stocks),
+        "stocks": stocks,
+    }
 
 
 @router.get("/dates")

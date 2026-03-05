@@ -112,7 +112,7 @@ class TestGetTopVolume:
     @patch("tw_stock_hot.web.routers.hot.tpex_engine")
     @patch("tw_stock_hot.web.routers.hot.twse_engine")
     def test_response_format(self, mock_twse_eng, mock_tpex_eng, client):
-        """回應應包含 stocks 清單與 date。"""
+        """回應應包含 stocks 清單與 date，且包含 open_price 欄位。"""
         mock_twse_conn = MagicMock()
         mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_twse_conn
         mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -120,6 +120,7 @@ class TestGetTopVolume:
             {
                 "code": "2330", "name": "台積電",
                 "trade_volume": 50000000, "trade_value": 55000000000,
+                "open_price": 1090.00,
                 "close_price": 1100.00, "price_change": 10.00,
                 "change_pct": 0.92, "industry": "半導體業", "market": "TWSE",
             }
@@ -139,6 +140,7 @@ class TestGetTopVolume:
         assert len(data["stocks"]) == 1
         assert data["stocks"][0]["code"] == "2330"
         assert data["stocks"][0]["trade_volume"] == 50000000
+        assert data["stocks"][0]["open_price"] == 1090.00
 
     @patch("tw_stock_hot.web.routers.hot.tpex_engine")
     @patch("tw_stock_hot.web.routers.hot.twse_engine")
@@ -151,6 +153,7 @@ class TestGetTopVolume:
             {
                 "code": "2330", "name": "台積電",
                 "trade_volume": 30000000, "trade_value": 33000000000,
+                "open_price": 1090.00,
                 "close_price": 1100.00, "price_change": 10.00,
                 "change_pct": 0.92, "industry": "半導體業", "market": "TWSE",
             }
@@ -163,6 +166,7 @@ class TestGetTopVolume:
             {
                 "code": "6547", "name": "高端疫苗",
                 "trade_volume": 80000000, "trade_value": 17600000000,
+                "open_price": 215.00,
                 "close_price": 220.00, "price_change": 5.00,
                 "change_pct": 2.33, "industry": "未分類", "market": "TPEX",
             }
@@ -184,7 +188,7 @@ class TestGetTopValue:
     @patch("tw_stock_hot.web.routers.hot.tpex_engine")
     @patch("tw_stock_hot.web.routers.hot.twse_engine")
     def test_response_format(self, mock_twse_eng, mock_tpex_eng, client):
-        """回應應包含 stocks 清單與 date。"""
+        """回應應包含 stocks 清單與 date，且包含 open_price 欄位。"""
         mock_twse_conn = MagicMock()
         mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_twse_conn
         mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -192,6 +196,7 @@ class TestGetTopValue:
             {
                 "code": "2330", "name": "台積電",
                 "trade_volume": 50000000, "trade_value": 55000000000,
+                "open_price": 1090.00,
                 "close_price": 1100.00, "price_change": 10.00,
                 "change_pct": 0.92, "industry": "半導體業", "market": "TWSE",
             }
@@ -210,6 +215,7 @@ class TestGetTopValue:
         assert "stocks" in data
         assert len(data["stocks"]) == 1
         assert data["stocks"][0]["trade_value"] == 55000000000
+        assert data["stocks"][0]["open_price"] == 1090.00
 
     @patch("tw_stock_hot.web.routers.hot.tpex_engine")
     @patch("tw_stock_hot.web.routers.hot.twse_engine")
@@ -222,6 +228,7 @@ class TestGetTopValue:
             {
                 "code": "2330", "name": "台積電",
                 "trade_volume": 50000000, "trade_value": 55000000000,
+                "open_price": 1090.00,
                 "close_price": 1100.00, "price_change": 10.00,
                 "change_pct": 0.92, "industry": "半導體業", "market": "TWSE",
             }
@@ -234,6 +241,7 @@ class TestGetTopValue:
             {
                 "code": "6547", "name": "高端疫苗",
                 "trade_volume": 80000000, "trade_value": 17600000000,
+                "open_price": 215.00,
                 "close_price": 220.00, "price_change": 5.00,
                 "change_pct": 2.33, "industry": "未分類", "market": "TPEX",
             }
@@ -369,6 +377,75 @@ class TestGetIndustryRatio:
 
 
 # ============================================================
+# /api/hot/industry-stocks
+# ============================================================
+
+class TestGetIndustryStocks:
+    """測試 /api/hot/industry-stocks 端點。"""
+
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_response_format(self, mock_twse_eng, client):
+        """回應應包含 date、industry、stock_count、stocks 清單。"""
+        mock_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.mappings.return_value.all.return_value = [
+            {
+                "code": "2330", "name": "台積電",
+                "open_price": 1090.00, "close_price": 1100.00,
+                "price_change": 10.00, "change_pct": 0.92,
+                "trade_volume": 50000000, "trade_value": 55000000000,
+                "industry": "半導體業",
+            },
+            {
+                "code": "2303", "name": "聯電",
+                "open_price": 55.00, "close_price": 56.00,
+                "price_change": 1.00, "change_pct": 1.82,
+                "trade_volume": 30000000, "trade_value": 1680000000,
+                "industry": "半導體業",
+            },
+        ]
+
+        res = client.get(
+            "/api/hot/industry-stocks?date=2026-03-02&industry=半導體業"
+        )
+        assert res.status_code == 200
+
+        data = res.json()
+        assert data["date"] == "2026-03-02"
+        assert data["industry"] == "半導體業"
+        assert data["stock_count"] == 2
+        assert len(data["stocks"]) == 2
+        assert data["stocks"][0]["code"] == "2330"
+        assert data["stocks"][0]["open_price"] == 1090.00
+        assert data["stocks"][0]["close_price"] == 1100.00
+        assert data["stocks"][0]["trade_volume"] == 50000000
+        assert data["stocks"][1]["code"] == "2303"
+
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_empty_result(self, mock_twse_eng, client):
+        """無資料時應回傳空 stocks 清單與 stock_count 為 0。"""
+        mock_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.mappings.return_value.all.return_value = []
+
+        res = client.get(
+            "/api/hot/industry-stocks?date=2026-01-01&industry=不存在的產業"
+        )
+        assert res.status_code == 200
+
+        data = res.json()
+        assert data["stocks"] == []
+        assert data["stock_count"] == 0
+
+    def test_missing_industry_param(self, client):
+        """缺少必要的 industry 參數應回傳 422。"""
+        res = client.get("/api/hot/industry-stocks?date=2026-03-02")
+        assert res.status_code == 422
+
+
+# ============================================================
 # /api/hot/dates
 # ============================================================
 
@@ -427,3 +504,8 @@ class TestRouteRegistered:
         """產業漲幅佔比排行路由應存在。"""
         routes = [r.path for r in app.routes]
         assert "/api/hot/industry-ratio" in routes
+
+    def test_hot_industry_stocks_route_exists(self, client):
+        """產業股票明細路由應存在。"""
+        routes = [r.path for r in app.routes]
+        assert "/api/hot/industry-stocks" in routes

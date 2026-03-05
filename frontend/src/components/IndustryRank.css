@@ -49,6 +49,17 @@
   text-overflow: ellipsis;
 }
 
+.industry-clickable {
+  color: #1e40af;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.industry-clickable:hover {
+  text-decoration: underline;
+  color: #1d4ed8;
+}
+
 .industry-bar-track {
   flex: 1;
   height: 24px;

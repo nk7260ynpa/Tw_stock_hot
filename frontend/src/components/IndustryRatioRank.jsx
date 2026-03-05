@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchIndustryRatio, fetchAvailableDates } from '../api/hot'
 import './IndustryRatioRank.css'
 
-function IndustryRatioRank({ onBack }) {
+function IndustryRatioRank({ onBack, onSelectIndustry }) {
   const [data, setData] = useState(null)
   const [dates, setDates] = useState([])
   const [selectedDate, setSelectedDate] = useState('')
@@ -87,7 +87,12 @@ function IndustryRatioRank({ onBack }) {
                     return (
                       <tr key={item.industry}>
                         <td className="col-rank">{idx + 1}</td>
-                        <td className="col-name">{item.industry}</td>
+                        <td
+                          className="col-name industry-ratio-clickable"
+                          onClick={() => onSelectIndustry && onSelectIndustry(item.industry, data.date)}
+                        >
+                          {item.industry}
+                        </td>
                         <td className="col-bar">
                           <div className="ratio-bar-track">
                             <div

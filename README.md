@@ -9,10 +9,11 @@
 ## 功能
 
 - **漲跌停排行**：每日漲停板/跌停板股票清單（僅 TWSE 上市股票）及產業分布統計
-- **交易量 TOP 10**：當日成交量最大的 10 檔股票（合併 TWSE + TPEX）
-- **交易金額 TOP 10**：當日成交金額最高的 10 檔股票（合併 TWSE + TPEX）
-- **產業漲幅排行**：各產業平均漲跌幅前 10 名（僅 TWSE，TPEX 無產業分類）
-- **產業漲幅佔比排行**：各產業漲跌公司數佔比分析（僅 TWSE），公式為 (漲的公司數 - 跌的公司數) / 產業總公司數
+- **交易量 TOP 10**：當日成交量最大的 10 檔股票（合併 TWSE + TPEX），含開盤價
+- **交易金額 TOP 10**：當日成交金額最高的 10 檔股票（合併 TWSE + TPEX），含開盤價
+- **產業漲幅排行**：各產業平均漲跌幅前 10 名（僅 TWSE，TPEX 無產業分類），產業名稱可點擊查看個股明細
+- **產業漲幅佔比排行**：各產業漲跌公司數佔比分析（僅 TWSE），公式為 (漲的公司數 - 跌的公司數) / 產業總公司數，產業名稱可點擊查看個股明細
+- **產業股票明細**：指定產業的所有股票交易資訊（僅 TWSE），含開盤價、收盤價、漲跌、漲跌幅、成交量、成交金額
 - 歷史交易日切換
 
 ## 專案架構
@@ -56,7 +57,9 @@ Tw_stock_hot/
 │           ├── IndustryRank.jsx     # 產業漲幅排行
 │           ├── IndustryRank.css
 │           ├── IndustryRatioRank.jsx  # 產業漲幅佔比排行
-│           └── IndustryRatioRank.css
+│           ├── IndustryRatioRank.css
+│           ├── IndustryStocks.jsx     # 產業股票明細
+│           └── IndustryStocks.css
 ├── tests/
 │   └── test_hot_api.py
 ├── logs/
@@ -87,6 +90,7 @@ bash run.sh
 | `/api/hot/top-value` | GET | 交易金額前 10 名（`?date=YYYY-MM-DD`） |
 | `/api/hot/industry-change` | GET | 產業平均漲跌幅前 10 名（`?date=YYYY-MM-DD`） |
 | `/api/hot/industry-ratio` | GET | 產業漲幅佔比排行（`?date=YYYY-MM-DD`） |
+| `/api/hot/industry-stocks` | GET | 產業股票明細（`?date=YYYY-MM-DD&industry=xxx`） |
 | `/api/hot/dates` | GET | 可查詢的交易日清單（`?limit=30`） |
 
 ### API 回應範例
@@ -102,6 +106,7 @@ bash run.sh
       "name": "台積電",
       "trade_volume": 50000000,
       "trade_value": 55000000000,
+      "open_price": 1090.0,
       "close_price": 1100.0,
       "price_change": 10.0,
       "change_pct": 0.92,
@@ -139,6 +144,29 @@ bash run.sh
       "up_count": 20,
       "down_count": 5,
       "total_count": 30
+    }
+  ]
+}
+```
+
+#### `/api/hot/industry-stocks`
+
+```json
+{
+  "date": "2026-03-02",
+  "industry": "半導體業",
+  "stock_count": 2,
+  "stocks": [
+    {
+      "code": "2330",
+      "name": "台積電",
+      "open_price": 1090.0,
+      "close_price": 1100.0,
+      "price_change": 10.0,
+      "change_pct": 0.92,
+      "trade_volume": 50000000,
+      "trade_value": 55000000000,
+      "industry": "半導體業"
     }
   ]
 }

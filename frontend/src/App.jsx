@@ -4,11 +4,15 @@ import LimitStocks from './components/LimitStocks'
 import RankTable from './components/RankTable'
 import IndustryRank from './components/IndustryRank'
 import IndustryRatioRank from './components/IndustryRatioRank'
+import IndustryStocks from './components/IndustryStocks'
 import { fetchTopVolume, fetchTopValue } from './api/hot'
 import './App.css'
 
 function App() {
   const [currentView, setCurrentView] = useState('home')
+  const [selectedIndustry, setSelectedIndustry] = useState('')
+  const [industryDate, setIndustryDate] = useState('')
+  const [previousView, setPreviousView] = useState('home')
 
   const handleSelectView = (view) => {
     setCurrentView(view)
@@ -16,6 +20,17 @@ function App() {
 
   const handleBackToHome = () => {
     setCurrentView('home')
+  }
+
+  const handleSelectIndustry = (industry, date) => {
+    setPreviousView(currentView)
+    setSelectedIndustry(industry)
+    setIndustryDate(date)
+    setCurrentView('industry-stocks')
+  }
+
+  const handleBackFromIndustryStocks = () => {
+    setCurrentView(previousView)
   }
 
   if (currentView === 'limit') {
@@ -57,7 +72,10 @@ function App() {
   if (currentView === 'industry') {
     return (
       <div className="app">
-        <IndustryRank onBack={handleBackToHome} />
+        <IndustryRank
+          onBack={handleBackToHome}
+          onSelectIndustry={handleSelectIndustry}
+        />
       </div>
     )
   }
@@ -65,7 +83,26 @@ function App() {
   if (currentView === 'industry-ratio') {
     return (
       <div className="app">
-        <IndustryRatioRank onBack={handleBackToHome} />
+        <IndustryRatioRank
+          onBack={handleBackToHome}
+          onSelectIndustry={handleSelectIndustry}
+        />
+      </div>
+    )
+  }
+
+  if (currentView === 'industry-stocks') {
+    const backLabel = previousView === 'industry-ratio'
+      ? '返回產業漲幅佔比排行'
+      : '返回產業漲幅排行'
+    return (
+      <div className="app">
+        <IndustryStocks
+          industry={selectedIndustry}
+          date={industryDate}
+          onBack={handleBackFromIndustryStocks}
+          backLabel={backLabel}
+        />
       </div>
     )
   }

@@ -42,3 +42,12 @@ export async function fetchIndustryRatio(date) {
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   return res.json()
 }
+
+export async function fetchIndustryStocks(date, industry) {
+  const params = new URLSearchParams()
+  if (date) params.set('date', date)
+  params.set('industry', industry)
+  const res = await fetch(`/api/hot/industry-stocks?${params.toString()}`)
+  if (!res.ok) throw new Error(`API error: ${res.status}`)
+  return res.json()
+}

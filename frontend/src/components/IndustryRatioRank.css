@@ -66,6 +66,17 @@
   text-align: left;
 }
 
+.industry-ratio-clickable {
+  color: #1e40af !important;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.industry-ratio-clickable:hover {
+  text-decoration: underline;
+  color: #1d4ed8 !important;
+}
+
 .col-bar {
   width: 30%;
   min-width: 120px;
