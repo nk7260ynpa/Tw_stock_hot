@@ -68,7 +68,10 @@ def _query_twse_limit_stocks(target_date: date) -> list[dict]:
 def _classify_stocks(
     stocks: list[dict],
 ) -> tuple[list[dict], list[dict]]:
-    """將股票分類為漲停板與跌停板。"""
+    """將股票分類為漲停板與跌停板。
+
+    分類後暫不排序，排序將交由 _sort_by_industry_rank 處理。
+    """
     limit_up = []
     limit_down = []
     for s in stocks:
@@ -77,8 +80,6 @@ def _classify_stocks(
             limit_up.append(s)
         elif pct <= -LIMIT_THRESHOLD:
             limit_down.append(s)
-    limit_up.sort(key=lambda x: float(x["change_pct"]), reverse=True)
-    limit_down.sort(key=lambda x: float(x["change_pct"]))
     return limit_up, limit_down
 
 
@@ -91,6 +92,42 @@ def _industry_stats(stocks: list[dict]) -> list[dict]:
     result = [{"industry": k, "count": v} for k, v in counter.items()]
     result.sort(key=lambda x: x["count"], reverse=True)
     return result
+
+
+def _sort_by_industry_rank(
+    stocks: list[dict],
+    industry_stats: list[dict],
+    ascending: bool = False,
+) -> list[dict]:
+    """依產業分布排名排序股票清單。
+
+    主排序鍵為產業在 industry_stats 中的排名（股票數越多排越前），
+    次排序鍵為漲跌幅（漲停: 降冪, 跌停: 升冪）。
+
+    Args:
+        stocks: 股票清單。
+        industry_stats: 產業統計清單（已依 count 降冪排序）。
+        ascending: True 表示漲跌幅升冪排序（用於跌停），
+                   False 表示降冪排序（用於漲停）。
+
+    Returns:
+        排序後的股票清單。
+    """
+    industry_rank = {
+        stat["industry"]: idx for idx, stat in enumerate(industry_stats)
+    }
+    max_rank = len(industry_stats)
+
+    def sort_key(stock: dict) -> tuple[int, float]:
+        industry = stock.get("industry", "") or "未分類"
+        rank = industry_rank.get(industry, max_rank)
+        pct = float(stock["change_pct"]) if stock["change_pct"] is not None else 0
+        # 漲停: pct 越大越前（取負數使其排前）
+        # 跌停: pct 越小越前（直接使用原值）
+        pct_key = pct if ascending else -pct
+        return (rank, pct_key)
+
+    return sorted(stocks, key=sort_key)
 
 
 @router.get("/limit")
@@ -117,14 +154,20 @@ def get_limit_stocks(
             s["price_change"] = _to_float(s["price_change"])
             s["change_pct"] = _to_float(s["change_pct"])
 
+    # 先計算產業統計，再依產業排名排序股票
+    up_stats = _industry_stats(limit_up)
+    down_stats = _industry_stats(limit_down)
+    limit_up = _sort_by_industry_rank(limit_up, up_stats, ascending=False)
+    limit_down = _sort_by_industry_rank(limit_down, down_stats, ascending=True)
+
     return {
         "date": str(target_date),
         "limit_up": limit_up,
         "limit_up_count": len(limit_up),
-        "limit_up_industry_stats": _industry_stats(limit_up),
+        "limit_up_industry_stats": up_stats,
         "limit_down": limit_down,
         "limit_down_count": len(limit_down),
-        "limit_down_industry_stats": _industry_stats(limit_down),
+        "limit_down_industry_stats": down_stats,
     }
 
 

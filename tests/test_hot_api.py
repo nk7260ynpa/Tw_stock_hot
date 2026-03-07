@@ -77,6 +77,63 @@ class TestGetLimitStocks:
         assert stats[1]["count"] == 1
 
     @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
+    def test_sorted_by_industry_rank(self, mock_twse, client):
+        """股票應依產業分布排名排序：數量多的產業排前面，同產業內按漲跌幅排。"""
+        mock_twse.return_value = [
+            {"code": "2317", "name": "鴻海", "prev_close": 150.00,
+             "open_price": 152.00, "close_price": 165.00,
+             "price_change": 15.00, "change_pct": 10.0, "industry": "其他電子業"},
+            {"code": "2330", "name": "台積電", "prev_close": 1000.00,
+             "open_price": 1005.00, "close_price": 1100.00,
+             "price_change": 100.00, "change_pct": 10.0, "industry": "半導體業"},
+            {"code": "3711", "name": "日月光", "prev_close": 200.00,
+             "open_price": 202.00, "close_price": 220.00,
+             "price_change": 20.00, "change_pct": 10.0, "industry": "半導體業"},
+            {"code": "2454", "name": "聯發科", "prev_close": 800.00,
+             "open_price": 805.00, "close_price": 880.00,
+             "price_change": 80.00, "change_pct": 10.0, "industry": "半導體業"},
+        ]
+
+        res = client.get("/api/hot/limit?date=2026-03-02")
+        data = res.json()
+
+        # 半導體業有 3 檔，其他電子業有 1 檔
+        # 半導體業的股票應排在前面
+        stocks = data["limit_up"]
+        assert len(stocks) == 4
+        assert stocks[0]["industry"] == "半導體業"
+        assert stocks[1]["industry"] == "半導體業"
+        assert stocks[2]["industry"] == "半導體業"
+        assert stocks[3]["industry"] == "其他電子業"
+        assert stocks[3]["code"] == "2317"
+
+    @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
+    def test_sorted_by_industry_rank_limit_down(self, mock_twse, client):
+        """跌停股票也應依產業分布排名排序，同產業內按漲跌幅升冪排。"""
+        mock_twse.return_value = [
+            {"code": "1101", "name": "台泥", "prev_close": 50.00,
+             "open_price": 49.00, "close_price": 45.00,
+             "price_change": -5.00, "change_pct": -10.0, "industry": "水泥工業"},
+            {"code": "1102", "name": "亞泥", "prev_close": 40.00,
+             "open_price": 39.00, "close_price": 36.00,
+             "price_change": -4.00, "change_pct": -10.0, "industry": "水泥工業"},
+            {"code": "2002", "name": "中鋼", "prev_close": 30.00,
+             "open_price": 29.00, "close_price": 27.00,
+             "price_change": -3.00, "change_pct": -10.0, "industry": "鋼鐵工業"},
+        ]
+
+        res = client.get("/api/hot/limit?date=2026-03-02")
+        data = res.json()
+
+        # 水泥工業有 2 檔，鋼鐵工業有 1 檔
+        stocks = data["limit_down"]
+        assert len(stocks) == 3
+        assert stocks[0]["industry"] == "水泥工業"
+        assert stocks[1]["industry"] == "水泥工業"
+        assert stocks[2]["industry"] == "鋼鐵工業"
+        assert stocks[2]["code"] == "2002"
+
+    @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
     def test_empty_result(self, mock_twse, client):
         """無資料時應回傳空清單。"""
         mock_twse.return_value = []
