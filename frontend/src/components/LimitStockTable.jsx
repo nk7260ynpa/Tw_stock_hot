@@ -14,6 +14,8 @@ function LimitStockTable({ stocks, type }) {
             <th>代碼</th>
             <th>名稱</th>
             <th>產業</th>
+            <th>昨收</th>
+            <th>開盤</th>
             <th>收盤價</th>
             <th>漲跌</th>
             <th>漲跌幅</th>
@@ -35,6 +37,8 @@ function LimitStockTable({ stocks, type }) {
                 </a>
               </td>
               <td className="cell-industry">{s.industry || '-'}</td>
+              <td className="cell-num">{s.prev_close.toFixed(2)}</td>
+              <td className="cell-num">{s.open_price.toFixed(2)}</td>
               <td className="cell-num">{s.close_price.toFixed(2)}</td>
               <td className={`cell-num ${type === 'up' ? 'text-red' : 'text-blue'}`}>
                 {s.price_change > 0 ? '+' : ''}{s.price_change.toFixed(2)}

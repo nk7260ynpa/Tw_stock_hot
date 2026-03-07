@@ -23,11 +23,13 @@ class TestGetLimitStocks:
 
     @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
     def test_response_format(self, mock_twse, client):
-        """回應應包含漲停與跌停清單。"""
+        """回應應包含漲停與跌停清單，且含 prev_close 與 open_price 欄位。"""
         mock_twse.return_value = [
             {
                 "code": "2330",
                 "name": "台積電",
+                "prev_close": 1000.00,
+                "open_price": 1005.00,
                 "close_price": 1100.00,
                 "price_change": 100.00,
                 "change_pct": 10.0,
@@ -48,16 +50,21 @@ class TestGetLimitStocks:
         assert data["limit_up_count"] == 1
         assert data["limit_up"][0]["code"] == "2330"
         assert data["limit_up"][0]["industry"] == "半導體業"
+        assert data["limit_up"][0]["prev_close"] == 1000.00
+        assert data["limit_up"][0]["open_price"] == 1005.00
 
     @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
     def test_industry_stats(self, mock_twse, client):
         """產業統計應正確計算。"""
         mock_twse.return_value = [
-            {"code": "2330", "name": "台積電", "close_price": 1100.00,
+            {"code": "2330", "name": "台積電", "prev_close": 1000.00,
+             "open_price": 1005.00, "close_price": 1100.00,
              "price_change": 100.00, "change_pct": 10.0, "industry": "半導體業"},
-            {"code": "3711", "name": "日月光", "close_price": 220.00,
+            {"code": "3711", "name": "日月光", "prev_close": 200.00,
+             "open_price": 202.00, "close_price": 220.00,
              "price_change": 20.00, "change_pct": 10.0, "industry": "半導體業"},
-            {"code": "2317", "name": "鴻海", "close_price": 165.00,
+            {"code": "2317", "name": "鴻海", "prev_close": 150.00,
+             "open_price": 152.00, "close_price": 165.00,
              "price_change": 15.00, "change_pct": 10.0, "industry": "其他電子業"},
         ]
 
@@ -88,6 +95,8 @@ class TestGetLimitStocks:
             {
                 "code": "9999",
                 "name": "測試股",
+                "prev_close": 100.00,
+                "open_price": 101.00,
                 "close_price": 110.00,
                 "price_change": 10.00,
                 "change_pct": 10.0,

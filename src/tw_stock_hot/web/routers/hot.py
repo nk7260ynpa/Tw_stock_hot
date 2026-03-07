@@ -45,6 +45,8 @@ def _query_twse_limit_stocks(target_date: date) -> list[dict]:
         SELECT
             dp.SecurityCode AS code,
             sn.StockName AS name,
+            ROUND(dp.ClosingPrice - dp.Change, 2) AS prev_close,
+            dp.OpeningPrice AS open_price,
             dp.ClosingPrice AS close_price,
             dp.Change AS price_change,
             ROUND(dp.Change / (dp.ClosingPrice - dp.Change) * 100, 2) AS change_pct,
@@ -109,6 +111,8 @@ def get_limit_stocks(
     # 序列化 Decimal
     for lst in (limit_up, limit_down):
         for s in lst:
+            s["prev_close"] = _to_float(s["prev_close"])
+            s["open_price"] = _to_float(s["open_price"])
             s["close_price"] = _to_float(s["close_price"])
             s["price_change"] = _to_float(s["price_change"])
             s["change_pct"] = _to_float(s["change_pct"])
