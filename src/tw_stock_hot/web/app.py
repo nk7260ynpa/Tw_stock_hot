@@ -15,7 +15,11 @@ from tw_stock_hot.web.routers.hot import router as hot_router
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="台股熱門話題", version="1.0.0")
+app = FastAPI(
+    title="台股熱門話題",
+    version="1.0.0",
+    root_path=os.environ.get("ROOT_PATH", ""),
+)
 
 # 註冊 API 路由
 app.include_router(hot_router)

@@ -14,8 +14,7 @@ docker run -d \
   --name "$CONTAINER_NAME" \
   --restart=always \
   --network db_network \
-  -p 5050:5050 \
   -v "$SCRIPT_DIR/logs:/app/logs" \
   "$IMAGE_NAME"
 
-echo "服務已啟動: http://localhost:5050"
+echo "服務已啟動 (僅限 db_network 內部存取): http://tw_stock_hot:5050"
