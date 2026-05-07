@@ -28,7 +28,7 @@ function LimitStockTable({ stocks, type }) {
               <td className="cell-code">{s.code}</td>
               <td>
                 <a
-                  href={`http://localhost:7938/?code=${s.code}`}
+                  href={`/app/webpage/?code=${s.code}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="stock-link"
