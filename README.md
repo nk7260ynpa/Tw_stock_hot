@@ -199,6 +199,15 @@ bash run.sh
 - **產出**：同時推送版本號 tag（如 `1.0.0`）與 `latest` tag
 - **Workflow 檔案**：`.github/workflows/docker-publish.yml`
 
+### GitLab → GitHub 鏡像
+
+開發主線在自架 GitLab，GitHub 為對外鏡像（`origin` → GitLab、`github` → GitHub）。
+
+- **觸發條件**：在 `main` 打上 `vX.Y.Z` 版本 tag 並推送（**合併進 `main` 當下不鏡像**）
+- **行為**：`.gitlab-ci.yml` 的 `mirror-to-github` job 以 GitLab Runner 注入的 SSH
+  金鑰（`GITHUB_SSH_KEY`）把 `main` 與該版本 tag 一併推送到 GitHub
+- **流程**：feature 分支 → 開 MR → 合併進 `main` → 在 `main` 打 `vX.Y.Z` tag → 觸發鏡像
+
 ### 發布新版本
 
 ```bash
