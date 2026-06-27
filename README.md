@@ -201,34 +201,67 @@ bash run.sh
 
 ## CI/CD
 
-使用 GitHub Actions 自動建置並推送 Docker image 至 DockerHub。
+開發主線在自架 GitLab，`.gitlab-ci.yml` 在推送 `vX.Y.Z` 版本 tag 時觸發管線，
+管線含 **deploy** 與 **mirror** 兩個並行 stage（兩個 job 各自 `needs: []`，互不阻擋）。
 
-- **觸發條件**：推送符合 `v*.*.*` 格式的 Git tag
-- **產出**：同時推送版本號 tag（如 `1.0.0`）與 `latest` tag
-- **Workflow 檔案**：`.github/workflows/docker-publish.yml`
+```text
+在 main 打上 vX.Y.Z tag
+        │
+        ├──> deploy（並行）：於 GitLab Runner 的 host daemon 本地 build 並重啟容器
+        └──> mirror（並行）：把 main 與該 tag 推送到 GitHub（再由 GitHub Actions 推映像）
+```
 
-### GitLab → GitHub 鏡像
+### deploy（tag 觸發、host 本地重新部署）
 
-開發主線在自架 GitLab，GitHub 為對外鏡像（`origin` → GitLab、`github` → GitHub）。
+- **觸發條件**：在 `main` 打上 `vX.Y.Z` 版本 tag 並推送（**合併進 `main` 當下不部署**）
+- **執行環境**：GitLab Runner 為 docker executor 且掛載 `/var/run/docker.sock`（socket 綁定），
+  故 job 內的 `docker` 指令直接作用在 **host daemon**——build 出的映像、run 起的容器都落在主機，
+  等同手動執行 `docker/build.sh` + `run.sh`。
+- **步驟（嚴格順序，關鍵安全性質）**：`docker build` → `docker rm -f` → `docker run`。
+  先 build 新映像，**build 失敗即中止、舊容器完全不動、服務不中斷**；只有 build 成功後才會
+  移除舊容器並以新映像重啟。切勿調換此順序。
+- **容器設定**：`--restart=always`、`--network db_network`，log 以**具名 volume
+  `tw_stock_hot_logs`** 掛載到容器內 `/app/logs`。
+- **映像標籤**：同時打上 `nk7260ynpa/tw_stock_hot:<版本>` 與 `:latest`。
+
+> **查 log 的位置（重要）**：經 CI 部署的容器，log 落在**具名 volume `tw_stock_hot_logs`**，
+> **不再**寫入 repo 的 `logs/` 目錄。請改用 `docker logs tw_stock_hot`，或直接讀具名 volume
+> （`docker run --rm -v tw_stock_hot_logs:/logs alpine cat /logs/hot.log`）。repo 內 `logs/` 僅在
+> 以 `run.sh` 手動啟動（bind mount）時才會有內容。
+
+### mirror（GitLab → GitHub 鏡像）
+
+GitHub 為對外鏡像（`origin` → GitLab、`github` → GitHub）。
 
 - **觸發條件**：在 `main` 打上 `vX.Y.Z` 版本 tag 並推送（**合併進 `main` 當下不鏡像**）
 - **行為**：`.gitlab-ci.yml` 的 `mirror-to-github` job 以 GitLab Runner 注入的 SSH
   金鑰（`GITHUB_SSH_KEY`）把 `main` 與該版本 tag 一併推送到 GitHub
-- **流程**：feature 分支 → 開 MR → 合併進 `main` → 在 `main` 打 `vX.Y.Z` tag → 觸發鏡像
+- **後續**：GitHub 收到 tag 後，由 `.github/workflows/docker-publish.yml`（GitHub Actions）
+  另行建置並推送 `nk7260ynpa/tw_stock_hot:{版本}` 與 `:latest` 到 DockerHub
+
+### 流程
+
+```text
+feature 分支 → 開 MR → 合併進 main → 在 main 打 vX.Y.Z tag → 觸發 deploy + mirror 並行
+```
 
 ### 發布新版本
 
 ```bash
 # 1. 更新 pyproject.toml 中的版本號
-# 2. Commit 所有變更
-# 3. 建立 tag 並推送
-git tag v1.0.0
-git push origin v1.0.0
+# 2. Commit 所有變更並合併進 main
+# 3. 在 main 建立 annotated tag 並僅推送到 origin（GitLab）
+git tag -a v1.3.0 -m "版本說明"
+git push origin v1.3.0   # 觸發 deploy（host 重新部署）+ mirror（推送到 GitHub）
 ```
 
-### 必要的 GitHub Secrets
+> 只需 `git push origin <tag>`；**不要**手動推送到 `github`，GitHub 由 `mirror-to-github`
+> job 自動鏡像。tag 推送後即觸發 deploy 重新部署本機容器。
 
-| Secret | 說明 |
-|--------|------|
-| `DOCKER_USERNAME` | DockerHub 帳號 |
-| `DOCKER_PASSWORD` | DockerHub 密碼或 Access Token |
+### 必要的 CI 變數 / Secrets
+
+| 來源 | 變數 | 說明 |
+|------|------|------|
+| GitLab Runner | `GITHUB_SSH_KEY` | mirror job 推送到 GitHub 用的 SSH 私鑰（路徑或內容皆可） |
+| GitHub Actions | `DOCKER_USERNAME` | DockerHub 帳號 |
+| GitHub Actions | `DOCKER_PASSWORD` | DockerHub 密碼或 Access Token |

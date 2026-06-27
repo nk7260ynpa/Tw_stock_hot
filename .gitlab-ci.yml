@@ -1,12 +1,19 @@
-# GitLab CI/CD：在 main 打上 vX.Y.Z 版本 tag 時，把儲存庫鏡像推送到 GitHub
-#                （合併進 main 當下不鏡像）
+# GitLab CI/CD：在 main 打上 vX.Y.Z 版本 tag 時，
+#   (1) deploy ：於 GitLab Runner 的 host daemon 本地 build 映像並重啟容器（自動重新部署）。
+#   (2) mirror ：把儲存庫鏡像推送到 GitHub（合併進 main 當下不鏡像）。
+# 兩個 job 各自 needs: []，互不相依、並行執行。
 #
 # ── 流程 ───────────────────────────────────────────────────────────
-#   feature 分支 → 開 Merge Request → 合併進 main（此時不觸發鏡像）
+#   feature 分支 → 開 Merge Request → 合併進 main（此時不觸發任何 job）
 #   → 在 main 打上 vX.Y.Z 版本 tag → 本管線於該 tag 觸發
-#   → 將 main 與該 tag 一併推送（鏡像）到 GitHub。
+#   → deploy（重新部署本機容器）與 mirror（推送到 GitHub）並行執行。
 #
-# ── 認證來源 ───────────────────────────────────────────────────────
+# ── Runner 前提（deploy 用） ────────────────────────────────────────
+#   GitLab Runner 為 docker executor 並掛載 /var/run/docker.sock（socket 綁定），
+#   故 deploy job 內的 docker 指令直接作用在 host daemon——build 出來的映像、
+#   run 起來的容器都落在主機，與手動執行 docker/build.sh + run.sh 等價。
+#
+# ── 認證來源（mirror 用） ──────────────────────────────────────────
 #   GITHUB_SSH_KEY  由 GitLab Runner 注入（config.toml 的 environment 或掛載）。
 #                   其值可為 SSH 私鑰的「檔案路徑」或「私鑰內容」，本管線兩者皆支援。
 #                   對應公鑰需加到 GitHub repo → Settings → Deploy keys，並勾選
@@ -16,6 +23,7 @@
 #   GIT_DEPTH: 0 取得完整歷史，避免 shallow clone 導致 GitHub 推送被拒。
 
 stages:
+  - deploy
   - mirror
 
 workflow:
@@ -23,9 +31,43 @@ workflow:
     # 僅在推送 vX.Y.Z 版本 tag 時建立管線（合併進 main 不觸發）
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
 
+# ── deploy：在 host daemon 本地 build 並重啟容器 ────────────────────
+deploy:
+  stage: deploy
+  image: docker:27
+  needs: []                       # 與 mirror 互不相依、並行執行
+  resource_group: deploy          # 同 repo 不並發部署（序列化保護）
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+  variables:
+    IMAGE: "nk7260ynpa/tw_stock_hot"
+    CONTAINER: "tw_stock_hot"
+    LOGS_VOLUME: "tw_stock_hot_logs"
+    LOGS_PATH: "/app/logs"
+  before_script:
+    # CI_COMMIT_TAG 形如 vX.Y.Z，去掉前綴 v 作為映像版本標籤
+    - export VERSION="${CI_COMMIT_TAG#v}"
+  script:
+    # ⚠️ 嚴格維持 build → rm -f → run 順序，這是關鍵安全性質：
+    #    先 build 新映像，build 失敗會在此中止（set -e by docker:27 entrypoint 的
+    #    job 預設），舊容器完全不動、服務不中斷；只有 build 成功後才會
+    #    rm -f 舊容器並以新映像重啟。切勿調換順序。
+    - docker build -f docker/Dockerfile -t "$IMAGE:$VERSION" -t "$IMAGE:latest" .
+    - docker rm -f "$CONTAINER" || true
+    - docker run -d
+        --name "$CONTAINER"
+        --restart=always
+        --network db_network
+        --volume "$LOGS_VOLUME:$LOGS_PATH"
+        "$IMAGE:latest"
+    # 清掉 build 過程留下的 dangling 映像，避免主機磁碟堆積
+    - docker image prune -f || true
+
+# ── mirror：把 main 與該版本 tag 一併推送到 GitHub ─────────────────
 mirror-to-github:
   stage: mirror
   image: alpine:3.20
+  needs: []                       # 與 deploy 互不相依、並行執行
   variables:
     GIT_DEPTH: 0                                       # 完整歷史，確保可 fast-forward 推送
     GITHUB_REPO: "git@github.com:nk7260ynpa/Tw_stock_hot.git"
