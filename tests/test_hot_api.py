@@ -1,17 +1,36 @@
 """台股熱度 API 單元測試。"""
 
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from tw_stock_hot.web.app import app
+from tw_stock_hot.web.routers import hot as hot_module
+
+# 在 autouse fixture 介入前擷取真實 helper 參照，供直接測試底層查詢函式使用。
+_real_query_latest_date = hot_module._query_latest_date_on_or_before
+_resolve_trading_date = hot_module._resolve_trading_date
 
 
 @pytest.fixture
 def client():
     """建立測試用 FastAPI client。"""
     return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _trading_date_has_data(monkeypatch):
+    """預設情境：請求日期當天即有資料（退回邏輯不觸發）。
+
+    讓既有測試維持「回應 date == 請求日期」的行為；
+    需要驗證退回行為的測試會自行覆寫 `_query_latest_date_on_or_before`。
+    """
+    monkeypatch.setattr(
+        "tw_stock_hot.web.routers.hot._query_latest_date_on_or_before",
+        lambda target_date: target_date,
+    )
 
 
 # ============================================================
@@ -546,43 +565,240 @@ class TestGetAvailableDates:
 
 
 # ============================================================
+# 日期退回邏輯（最新日無資料 → 退回最近有資料日）
+# ============================================================
+
+class TestQueryLatestDate:
+    """測試 _query_latest_date_on_or_before 底層查詢函式。"""
+
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_returns_date_when_present(self, mock_eng):
+        """資料庫有 <= 目標日期的資料時應回傳該最大日期。"""
+        mock_conn = MagicMock()
+        mock_eng.connect.return_value.__enter__ = lambda _: mock_conn
+        mock_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.scalar.return_value = date(2026, 3, 2)
+
+        result = _real_query_latest_date(date(2026, 3, 5))
+        assert result == date(2026, 3, 2)
+
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_returns_none_when_no_data(self, mock_eng):
+        """查無資料（scalar 為 None）時應回傳 None。"""
+        mock_conn = MagicMock()
+        mock_eng.connect.return_value.__enter__ = lambda _: mock_conn
+        mock_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.scalar.return_value = None
+
+        result = _real_query_latest_date(date(2026, 3, 5))
+        assert result is None
+
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    def test_ignores_non_date_value(self, mock_eng):
+        """scalar 回傳非 date 型別（髒資料）時應視為查無資料回傳 None。"""
+        mock_conn = MagicMock()
+        mock_eng.connect.return_value.__enter__ = lambda _: mock_conn
+        mock_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.scalar.return_value = "not-a-date"
+
+        result = _real_query_latest_date(date(2026, 3, 5))
+        assert result is None
+
+
+class TestResolveTradingDate:
+    """測試 _resolve_trading_date 退回解析邏輯。"""
+
+    @patch("tw_stock_hot.web.routers.hot._query_latest_date_on_or_before")
+    def test_default_returns_latest_available(self, mock_latest):
+        """不帶日期時，requested 為今天、actual 為資料庫最新有資料日。"""
+        mock_latest.return_value = date(2026, 3, 2)
+        requested, actual = _resolve_trading_date(None)
+        assert requested == date.today()
+        assert actual == date(2026, 3, 2)
+        mock_latest.assert_called_once_with(date.today())
+
+    @patch("tw_stock_hot.web.routers.hot._query_latest_date_on_or_before")
+    def test_specified_date_with_data(self, mock_latest):
+        """指定有資料日期時，requested 與 actual 應一致。"""
+        mock_latest.return_value = date(2026, 3, 2)
+        requested, actual = _resolve_trading_date("2026-03-02")
+        assert requested == date(2026, 3, 2)
+        assert actual == date(2026, 3, 2)
+
+    @patch("tw_stock_hot.web.routers.hot._query_latest_date_on_or_before")
+    def test_specified_nodata_falls_back(self, mock_latest):
+        """指定無資料日期時，actual 應退回到最近有資料日。"""
+        mock_latest.return_value = date(2026, 3, 2)
+        requested, actual = _resolve_trading_date("2026-03-05")
+        assert requested == date(2026, 3, 5)
+        assert actual == date(2026, 3, 2)
+
+    @patch("tw_stock_hot.web.routers.hot._query_latest_date_on_or_before")
+    def test_no_data_in_db_keeps_requested(self, mock_latest):
+        """資料庫完全無資料時，actual 退回為請求日本身。"""
+        mock_latest.return_value = None
+        requested, actual = _resolve_trading_date("2026-03-05")
+        assert requested == date(2026, 3, 5)
+        assert actual == date(2026, 3, 5)
+
+
+class TestDateFallbackEndpoints:
+    """測試各 API 在「最新日無資料」情境下會退回並標示實際日期。"""
+
+    @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
+    @patch("tw_stock_hot.web.routers.hot._query_latest_date_on_or_before")
+    def test_limit_default_uses_latest_available_date(
+        self, mock_latest, mock_query, client
+    ):
+        """預設（不帶 date）開啟漲跌停應顯示最後一個有資料日的資料，不空白。"""
+        # 模擬今天尚無資料，資料庫最新有資料日為 2026-03-02
+        mock_latest.return_value = date(2026, 3, 2)
+        mock_query.return_value = [
+            {"code": "2330", "name": "台積電", "prev_close": 1000.0,
+             "open_price": 1005.0, "close_price": 1100.0,
+             "price_change": 100.0, "change_pct": 10.0, "industry": "半導體業"},
+        ]
+
+        res = client.get("/api/hot/limit")
+        assert res.status_code == 200
+        data = res.json()
+        # 標題顯示的 date 為退回後實際採用日期
+        assert data["date"] == "2026-03-02"
+        # requested_date 為預設的今天
+        assert data["requested_date"] == date.today().isoformat()
+        # 畫面不再空白
+        assert data["limit_up_count"] == 1
+        # 以退回後日期實際查詢
+        mock_query.assert_called_once_with(date(2026, 3, 2))
+
+    @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
+    @patch("tw_stock_hot.web.routers.hot._query_latest_date_on_or_before")
+    def test_limit_specified_nodata_falls_back(
+        self, mock_latest, mock_query, client
+    ):
+        """指定一個無資料日期查詢，應退回最近有資料日並於回應標示。"""
+        # 使用者指定 2026-03-05（無資料），最近有資料日為 2026-03-02
+        mock_latest.return_value = date(2026, 3, 2)
+        mock_query.return_value = []
+
+        res = client.get("/api/hot/limit?date=2026-03-05")
+        data = res.json()
+        assert data["requested_date"] == "2026-03-05"
+        assert data["date"] == "2026-03-02"
+        mock_latest.assert_called_once_with(date(2026, 3, 5))
+        mock_query.assert_called_once_with(date(2026, 3, 2))
+
+    @patch("tw_stock_hot.web.routers.hot._query_twse_limit_stocks")
+    @patch("tw_stock_hot.web.routers.hot._query_latest_date_on_or_before")
+    def test_limit_no_data_in_db_keeps_requested(
+        self, mock_latest, mock_query, client
+    ):
+        """資料庫完全無資料時，date 退回為請求日本身且結果為空。"""
+        mock_latest.return_value = None
+        mock_query.return_value = []
+
+        res = client.get("/api/hot/limit?date=2026-03-05")
+        data = res.json()
+        assert data["date"] == "2026-03-05"
+        assert data["requested_date"] == "2026-03-05"
+        assert data["limit_up_count"] == 0
+        assert data["limit_down_count"] == 0
+
+    @patch("tw_stock_hot.web.routers.hot.tpex_engine")
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    @patch("tw_stock_hot.web.routers.hot._query_latest_date_on_or_before")
+    def test_top_volume_default_uses_latest_available_date(
+        self, mock_latest, mock_twse_eng, mock_tpex_eng, client
+    ):
+        """交易量 TOP 10 預設開啟應退回到最新有資料日並標示。"""
+        mock_latest.return_value = date(2026, 3, 2)
+
+        mock_twse_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_twse_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_twse_conn.execute.return_value.mappings.return_value.all.return_value = [
+            {
+                "code": "2330", "name": "台積電",
+                "trade_volume": 50000000, "trade_value": 55000000000,
+                "prev_close": 1090.00, "open_price": 1090.00,
+                "close_price": 1100.00, "price_change": 10.00,
+                "change_pct": 0.92, "industry": "半導體業", "market": "TWSE",
+            }
+        ]
+
+        mock_tpex_conn = MagicMock()
+        mock_tpex_eng.connect.return_value.__enter__ = lambda _: mock_tpex_conn
+        mock_tpex_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_tpex_conn.execute.return_value.mappings.return_value.all.return_value = []
+
+        res = client.get("/api/hot/top-volume")
+        data = res.json()
+        assert data["date"] == "2026-03-02"
+        assert data["requested_date"] == date.today().isoformat()
+        assert len(data["stocks"]) == 1
+
+    @patch("tw_stock_hot.web.routers.hot.twse_engine")
+    @patch("tw_stock_hot.web.routers.hot._query_latest_date_on_or_before")
+    def test_industry_change_specified_nodata_falls_back(
+        self, mock_latest, mock_twse_eng, client
+    ):
+        """產業漲幅排行指定無資料日時應退回並標示 requested_date。"""
+        mock_latest.return_value = date(2026, 3, 2)
+        mock_conn = MagicMock()
+        mock_twse_eng.connect.return_value.__enter__ = lambda _: mock_conn
+        mock_twse_eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.mappings.return_value.all.return_value = [
+            {"industry": "半導體業", "stock_count": 30, "avg_change_pct": 2.15},
+        ]
+
+        res = client.get("/api/hot/industry-change?date=2026-03-05")
+        data = res.json()
+        assert data["date"] == "2026-03-02"
+        assert data["requested_date"] == "2026-03-05"
+        assert len(data["industries"]) == 1
+
+
+# ============================================================
 # 路由註冊
 # ============================================================
 
 class TestRouteRegistered:
-    """測試路由是否正確註冊。"""
+    """測試路由是否正確註冊。
+
+    以 ``app.openapi()['paths']`` 列舉已註冊路由，避免新版 FastAPI
+    （include_router 改為延遲包含、``app.routes`` 含 ``_IncludedRouter``
+    佔位物件）導致直接走訪 ``app.routes`` 取不到路徑。
+    """
+
+    @staticmethod
+    def _registered_paths() -> set[str]:
+        """取得目前已註冊的 API 路徑集合。"""
+        return set(app.openapi()["paths"].keys())
 
     def test_hot_limit_route_exists(self, client):
         """漲跌停路由應存在。"""
-        routes = [r.path for r in app.routes]
-        assert "/api/hot/limit" in routes
+        assert "/api/hot/limit" in self._registered_paths()
 
     def test_hot_dates_route_exists(self, client):
         """日期路由應存在。"""
-        routes = [r.path for r in app.routes]
-        assert "/api/hot/dates" in routes
+        assert "/api/hot/dates" in self._registered_paths()
 
     def test_hot_top_volume_route_exists(self, client):
         """交易量排行路由應存在。"""
-        routes = [r.path for r in app.routes]
-        assert "/api/hot/top-volume" in routes
+        assert "/api/hot/top-volume" in self._registered_paths()
 
     def test_hot_top_value_route_exists(self, client):
         """交易金額排行路由應存在。"""
-        routes = [r.path for r in app.routes]
-        assert "/api/hot/top-value" in routes
+        assert "/api/hot/top-value" in self._registered_paths()
 
     def test_hot_industry_change_route_exists(self, client):
         """產業漲幅排行路由應存在。"""
-        routes = [r.path for r in app.routes]
-        assert "/api/hot/industry-change" in routes
+        assert "/api/hot/industry-change" in self._registered_paths()
 
     def test_hot_industry_ratio_route_exists(self, client):
         """產業漲幅佔比排行路由應存在。"""
-        routes = [r.path for r in app.routes]
-        assert "/api/hot/industry-ratio" in routes
+        assert "/api/hot/industry-ratio" in self._registered_paths()
 
     def test_hot_industry_stocks_route_exists(self, client):
         """產業股票明細路由應存在。"""
-        routes = [r.path for r in app.routes]
-        assert "/api/hot/industry-stocks" in routes
+        assert "/api/hot/industry-stocks" in self._registered_paths()

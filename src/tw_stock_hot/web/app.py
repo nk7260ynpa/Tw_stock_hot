@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="台股熱門話題",
-    version="1.0.0",
+    version="1.2.0",
     root_path=os.environ.get("ROOT_PATH", ""),
 )
 
