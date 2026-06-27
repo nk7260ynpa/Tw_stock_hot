@@ -67,6 +67,12 @@ function RankTable({ title, fetchData, rankField, rankLabel, onBack }) {
         {data && <span className="current-date">{data.date}</span>}
       </div>
 
+      {data && selectedDate && data.requested_date && data.date !== data.requested_date && (
+        <p className="fallback-notice">
+          您選擇的 {data.requested_date} 尚無資料，已顯示最近有資料的 {data.date}
+        </p>
+      )}
+
       {loading && <p className="status">載入中...</p>}
       {error && <p className="status error">載入失敗：{error}</p>}
 

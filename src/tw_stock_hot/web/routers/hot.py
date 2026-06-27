@@ -39,6 +39,54 @@ def _to_float(val) -> float:
     return float(val)
 
 
+def _query_latest_date_on_or_before(target_date: date) -> date | None:
+    """查詢 TWSE DailyPrice 中 <= target_date 的最近有資料日期。
+
+    以 TWSE 上市資料的交易日作為全平台的交易日基準（上市／上櫃共用同一份
+    交易日曆），用於當請求日期當天尚無資料時的退回判斷。
+
+    Args:
+        target_date: 請求查詢的日期（含當日）。
+
+    Returns:
+        資料庫中 <= target_date 的最大有資料日期；查無資料時回傳 None。
+    """
+    sql = text("""
+        SELECT MAX(Date) AS latest_date
+        FROM DailyPrice
+        WHERE Date <= :target_date
+    """)
+    with twse_engine.connect() as conn:
+        result = conn.execute(sql, {"target_date": target_date}).scalar()
+    # 僅接受真正的 date 型別，避免髒資料污染退回邏輯。
+    return result if isinstance(result, date) else None
+
+
+def _resolve_trading_date(date_str: str | None) -> tuple[date, date]:
+    """解析實際採用的交易日期（資料退回邏輯）。
+
+    當請求日期當天尚無 DailyPrice 資料時（例如當日盤後資料尚未上傳，或請求
+    日為假日／非交易日），自動退回至「請求日期(含)以前、資料庫中最近一個
+    真正有資料的交易日」，避免畫面空白。
+
+    Args:
+        date_str: 使用者請求的日期字串（YYYY-MM-DD）；None 表示預設取最新
+            交易日（以今天為上界）。
+
+    Returns:
+        (requested_date, actual_date) 二元組：
+          - requested_date: 使用者請求的日期（None 時為今天）。
+          - actual_date: 實際採用、確實有資料的日期；若資料庫無任何
+            <= requested_date 的資料則退回 requested_date 本身（查詢結果為空）。
+    """
+    requested_date = date.fromisoformat(date_str) if date_str else date.today()
+    latest = _query_latest_date_on_or_before(requested_date)
+    actual_date = latest if latest is not None else requested_date
+    if actual_date != requested_date:
+        logger.info("請求日期 %s 無資料，退回至 %s", requested_date, actual_date)
+    return requested_date, actual_date
+
+
 def _query_twse_limit_stocks(target_date: date) -> list[dict]:
     """查詢 TWSE 漲跌停股票。"""
     sql = text("""
@@ -137,8 +185,9 @@ def get_limit_stocks(
     """取得指定日期的漲停板與跌停板股票。
 
     僅查詢 TWSE 上市股票（TPEX 無產業對照資料，不納入漲跌停排行）。
+    當請求日期當天尚無資料時，自動退回至最近一個有資料的交易日。
     """
-    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    requested_date, target_date = _resolve_trading_date(date_str)
     logger.info("查詢漲跌停: %s", target_date)
 
     all_stocks = _query_twse_limit_stocks(target_date)
@@ -162,6 +211,7 @@ def get_limit_stocks(
 
     return {
         "date": str(target_date),
+        "requested_date": str(requested_date),
         "limit_up": limit_up,
         "limit_up_count": len(limit_up),
         "limit_up_industry_stats": up_stats,
@@ -178,8 +228,9 @@ def get_top_volume(
     """取得指定日期交易量前 10 名股票。
 
     合併 TWSE 與 TPEX 資料，依交易量降冪排序取前 10 名。
+    當請求日期當天尚無資料時，自動退回至最近一個有資料的交易日。
     """
-    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    requested_date, target_date = _resolve_trading_date(date_str)
     logger.info("查詢交易量 TOP 10: %s", target_date)
 
     twse_sql = text("""
@@ -248,7 +299,11 @@ def get_top_volume(
         s["price_change"] = _to_float(s["price_change"])
         s["change_pct"] = _to_float(s["change_pct"])
 
-    return {"date": str(target_date), "stocks": top10}
+    return {
+        "date": str(target_date),
+        "requested_date": str(requested_date),
+        "stocks": top10,
+    }
 
 
 @router.get("/top-value")
@@ -258,8 +313,9 @@ def get_top_value(
     """取得指定日期交易金額前 10 名股票。
 
     合併 TWSE 與 TPEX 資料，依交易金額降冪排序取前 10 名。
+    當請求日期當天尚無資料時，自動退回至最近一個有資料的交易日。
     """
-    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    requested_date, target_date = _resolve_trading_date(date_str)
     logger.info("查詢交易金額 TOP 10: %s", target_date)
 
     twse_sql = text("""
@@ -328,7 +384,11 @@ def get_top_value(
         s["price_change"] = _to_float(s["price_change"])
         s["change_pct"] = _to_float(s["change_pct"])
 
-    return {"date": str(target_date), "stocks": top10}
+    return {
+        "date": str(target_date),
+        "requested_date": str(requested_date),
+        "stocks": top10,
+    }
 
 
 @router.get("/industry-change")
@@ -339,8 +399,9 @@ def get_industry_change(
 
     僅使用 TWSE 資料（TPEX 無產業分類）。
     依各產業平均漲跌幅降冪排序，取前 10 名。
+    當請求日期當天尚無資料時，自動退回至最近一個有資料的交易日。
     """
-    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    requested_date, target_date = _resolve_trading_date(date_str)
     logger.info("查詢產業漲幅排行: %s", target_date)
 
     sql = text("""
@@ -371,7 +432,11 @@ def get_industry_change(
             "avg_change_pct": _to_float(r["avg_change_pct"]),
         })
 
-    return {"date": str(target_date), "industries": industries}
+    return {
+        "date": str(target_date),
+        "requested_date": str(requested_date),
+        "industries": industries,
+    }
 
 
 @router.get("/industry-ratio")
@@ -383,8 +448,9 @@ def get_industry_ratio(
     僅使用 TWSE 資料（TPEX 無產業分類）。
     漲幅佔比公式：(漲的公司數 - 跌的公司數) / 該產業總公司數 * 100。
     依漲幅佔比降冪排序。
+    當請求日期當天尚無資料時，自動退回至最近一個有資料的交易日。
     """
-    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    requested_date, target_date = _resolve_trading_date(date_str)
     logger.info("查詢產業漲幅佔比排行: %s", target_date)
 
     sql = text("""
@@ -422,7 +488,11 @@ def get_industry_ratio(
             "total_count": int(r["total_count"]),
         })
 
-    return {"date": str(target_date), "industries": industries}
+    return {
+        "date": str(target_date),
+        "requested_date": str(requested_date),
+        "industries": industries,
+    }
 
 
 @router.get("/industry-stocks")
@@ -433,8 +503,9 @@ def get_industry_stocks(
     """取得指定日期、指定產業的個股明細。
 
     僅查詢 TWSE 上市股票，回傳該產業所有股票的交易資訊。
+    當請求日期當天尚無資料時，自動退回至最近一個有資料的交易日。
     """
-    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    requested_date, target_date = _resolve_trading_date(date_str)
     logger.info("查詢產業股票明細: %s, 產業=%s", target_date, industry)
 
     sql = text("""
@@ -483,6 +554,7 @@ def get_industry_stocks(
 
     return {
         "date": str(target_date),
+        "requested_date": str(requested_date),
         "industry": industry,
         "stock_count": len(stocks),
         "stocks": stocks,
